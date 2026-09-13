@@ -14,16 +14,17 @@
     button { min-height: 52px; border-radius: 10px; border: 1px solid currentColor; font-size: 1rem; padding: 10px; }
     button:active { transform: scale(.99); }
     .full { grid-column: 1 / -1; }
-    .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; max-height: 260px; overflow: auto; }
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; max-height: 300px; overflow: auto; }
     small { opacity: .75; }
   </style>
 </head>
 <body>
 <main>
   <h1>ST Score Audio — Fiziksel iPhone Safari Doğrulama</h1>
-  <p><small>Gerçek Salamander Grand Piano ve FreePats Classical Guitar runtime sample manifestleri kullanılır. Bu sayfa önce Audio Engine fiziksel ses kapısını doğrular.</small></p>
+  <p><small>Gerçek Salamander Grand Piano ve FreePats Classical Guitar runtime sample manifestleri kullanılır. Diagnostic Tone yalnız fiziksel WebAudio çıkışını ayırmak için test sinyalidir; üretim enstrümanı değildir.</small></p>
   <div id="status" class="status">Başlangıç: NEW</div>
   <div class="grid">
+    <button id="speakerTest" class="full">0. Hoparlör / WebAudio Diagnostic Tone</button>
     <button id="unlock" class="full">1. Audio Unlock / Resume</button>
     <button id="pianoC4">Piano C4</button>
     <button id="pianoRetrigger">Piano C4 Retrigger</button>
@@ -46,28 +47,63 @@
 
   const log = (message) => {
     const line = `${new Date().toISOString()}  ${message}`;
-    logNode.textContent = `${line}\n${logNode.textContent}`.slice(0, 9000);
+    logNode.textContent = `${line}\n${logNode.textContent}`.slice(0, 12000);
   };
 
   const show = (label) => {
     const s = engine.getStatus();
-    status.textContent = `${label}\nphase=${s.phase} instrument=${s.instrumentId} voices=${s.activeVoices}/${s.voiceLimit} context=${s.audioContextState ?? 'none'}`;
+    const d = engine.getDiagnostics();
+    status.textContent = `${label}\nphase=${s.phase} instrument=${s.instrumentId} voices=${s.activeVoices}/${s.voiceLimit} context=${s.audioContextState ?? 'none'}\naudition=${d.auditionSuccesses}/${d.auditionAttempts}${d.lastRequestToScheduleMs === undefined ? '' : ` scheduleMs=${d.lastRequestToScheduleMs.toFixed(1)}`}`;
   };
 
   const req = (midi, instrumentId, durationMs = 800) => ({
     requestId: `physical-${++seq}`,
-    sourceRevisionId: 'physical-ios-validation-v1',
+    sourceRevisionId: 'physical-ios-validation-v2',
     pitch: { midi },
     instrumentId,
     durationMs,
-    velocity: 0.78
+    velocity: 0.9
   });
 
-  async function unlock() {
+  async function speakerSelfTest() {
+    const ContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!ContextCtor) throw new Error('AudioContext API unavailable');
+    const ctx = new ContextCtor();
+    try {
+      const resumePromise = ctx.state === 'running' ? Promise.resolve() : ctx.resume();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.38);
+      await resumePromise;
+      if (ctx.state !== 'running') throw new Error(`diagnostic AudioContext state=${ctx.state}`);
+      status.textContent = 'SPEAKER_TEST_SCHEDULED\n440 Hz / 0.38 sn — fiziksel olarak kısa ton duyulmalı';
+      log('SPEAKER_TEST_SCHEDULED context=running');
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } finally {
+      if (ctx.state !== 'closed') await ctx.close().catch(() => {});
+    }
+  }
+
+  async function ensureEngineUnlocked() {
     const result = await engine.unlockFromUserGesture();
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
+    const s = engine.getStatus();
+    if (s.audioContextState !== 'running') throw new Error(`AUDIO_UNLOCK_REQUIRED: context=${s.audioContextState ?? 'none'}`);
+  }
+
+  async function unlock() {
+    await ensureEngineUnlocked();
     show('UNLOCK_OK');
-    log('UNLOCK_OK');
+    log('UNLOCK_OK context=running');
   }
 
   async function useInstrument(instrumentId) {
@@ -76,20 +112,22 @@
   }
 
   async function audition(midi, instrumentId, durationMs = 800) {
+    await ensureEngineUnlocked();
     await useInstrument(instrumentId);
     const result = await engine.audition(req(midi, instrumentId, durationMs));
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
     log(`AUDITION_OK ${instrumentId} midi=${midi} request=${result.requestId}`);
-    show('AUDITION_OK');
+    show('AUDITION_OK — fiziksel sesi ayrıca doğrula');
   }
 
   async function chord(midis, instrumentId) {
+    await ensureEngineUnlocked();
     await useInstrument(instrumentId);
     const results = await Promise.all(midis.map(midi => engine.audition(req(midi, instrumentId, 1000))));
     const failed = results.find(result => !result.ok);
     if (failed && !failed.ok) throw new Error(`${failed.error.code}: ${failed.error.message}`);
     log(`CHORD_OK ${instrumentId} midi=${midis.join(',')}`);
-    show('CHORD_OK');
+    show('CHORD_OK — fiziksel sesi ayrıca doğrula');
   }
 
   async function run(label, fn) {
@@ -101,9 +139,11 @@
     }
   }
 
+  document.querySelector('#speakerTest').addEventListener('click', () => run('SPEAKER_TEST', speakerSelfTest));
   document.querySelector('#unlock').addEventListener('click', () => run('UNLOCK', unlock));
   document.querySelector('#pianoC4').addEventListener('click', () => run('PIANO_C4', () => audition(60, 'GRAND_PIANO')));
   document.querySelector('#pianoRetrigger').addEventListener('click', () => run('PIANO_RETRIGGER', async () => {
+    await ensureEngineUnlocked();
     await useInstrument('GRAND_PIANO');
     const first = engine.audition(req(60, 'GRAND_PIANO', 900));
     await new Promise(resolve => setTimeout(resolve, 160));
@@ -111,7 +151,7 @@
     const results = await Promise.all([first, second]);
     if (results.some(result => !result.ok)) throw new Error('Retrigger audition failed');
     log('PIANO_RETRIGGER_OK');
-    show('PIANO_RETRIGGER_OK');
+    show('PIANO_RETRIGGER_OK — fiziksel sesi ayrıca doğrula');
   }));
   document.querySelector('#pianoChord').addEventListener('click', () => run('PIANO_CHORD', () => chord([60,64,67], 'GRAND_PIANO')));
   document.querySelector('#rest').addEventListener('click', () => run('REST', async () => {
@@ -123,13 +163,14 @@
   document.querySelector('#guitarE3').addEventListener('click', () => run('GUITAR_E3', () => audition(52, 'CLASSICAL_GUITAR', 1000)));
   document.querySelector('#guitarChord').addEventListener('click', () => run('GUITAR_CHORD', () => chord([52,55,59], 'CLASSICAL_GUITAR')));
   document.querySelector('#switch').addEventListener('click', () => run('SWITCH', async () => {
+    await ensureEngineUnlocked();
     await audition(60, 'GRAND_PIANO', 500);
     await new Promise(resolve => setTimeout(resolve, 650));
     await audition(52, 'CLASSICAL_GUITAR', 700);
     await new Promise(resolve => setTimeout(resolve, 850));
     await audition(60, 'GRAND_PIANO', 500);
     log('SWITCH_PIANO_GUITAR_PIANO_OK');
-    show('SWITCH_OK');
+    show('SWITCH_OK — fiziksel sesi ayrıca doğrula');
   }));
   document.querySelector('#stop').addEventListener('click', () => {
     engine.stopAll();
@@ -138,8 +179,9 @@
   });
 
   document.addEventListener('visibilitychange', () => {
-    log(`VISIBILITY ${document.visibilityState}`);
-    show(`VISIBILITY ${document.visibilityState}`);
+    const s = engine.getStatus();
+    log(`VISIBILITY ${document.visibilityState} engineContext=${s.audioContextState ?? 'none'}`);
+    show(`VISIBILITY ${document.visibilityState} — sonraki ses dokunuşu context'i tekrar resume eder`);
   });
 
   show('READY_FOR_USER_GESTURE');
