@@ -1,123 +1,95 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
   "document_type": "AUTONOMOUS_DEVELOPER_HANDOFF_STATUS",
   "project": "ST Score Audio Engine",
   "task_id": "ST_AUDIO_01_02_NOTE_AUDITION_FOUNDATION",
   "date": "2026-09-13",
-  "branch": "audio-00-foundation",
-  "pull_request": 1,
-  "status": "AUTOMATED_GATES_GREEN_READY_FOR_APPROVED_MERGE_PHYSICAL_DEVICE_PENDING",
-  "implementation_head": "9a35a945e8e37ad03a6a885935cae3d02eef4f6a",
-  "completed_milestones": [
+  "branch": "main",
+  "status": "MERGED_AUTOMATED_GATES_GREEN_PHYSICAL_DEVICE_PENDING",
+  "audio_engine": {
+    "repository": "khfy7wpr5p-maker/st-score-audio-engine",
+    "pull_request": 1,
+    "pull_request_status": "MERGED",
+    "main_merge_sha": "a924f57854fea09b9927118838ca260853c6051b",
+    "main_ci_run_id": 34765938706,
+    "main_ci_conclusion": "success",
+    "main_ci_gates": [
+      "Node 20 unit/typecheck",
+      "Node 22 unit/typecheck",
+      "WebKit browser real decode/schedule regression"
+    ]
+  },
+  "editor_core": {
+    "repository": "khfy7wpr5p-maker/st-score-editor-core",
+    "pull_request": 153,
+    "pull_request_status": "MERGED",
+    "main_merge_sha": "cb43122d5331c5cde6344ddfe405411569d3c3f7",
+    "main_ci_run_id": 34765871315,
+    "main_ci_conclusion": "success",
+    "main_ci_gates": [
+      "Node 18 core",
+      "Node 20 core",
+      "Node 22 core"
+    ]
+  },
+  "milestones": [
     {
       "id": "AUDIO-00",
-      "status": "AUTOMATED_PASS",
-      "evidence": [
-        "versioned contracts",
-        "runtime request validation",
-        "Web Audio lifecycle",
-        "SampleProvider abstraction",
-        "bounded VoiceManager",
-        "deterministic testkit",
-        "Node CI",
-        "WebKit CI",
-        "architecture and integration documentation"
-      ]
+      "status": "MERGED_AUTOMATED_PASS",
+      "summary": "Versioned contracts, Web Audio lifecycle, SampleProvider, bounded VoiceManager, deterministic testkit, CI and architecture documentation."
     },
     {
       "id": "AUDIO-01A",
-      "status": "AUTOMATED_PASS",
-      "evidence": [
-        "Grand Piano manifest-backed audition",
-        "bounded nearest-sample mapping",
-        "bounded raw and decoded caches",
-        "polyphony and retrigger-safe voice management",
-        "gain/release envelope",
-        "noteOff stopAll dispose coverage"
-      ]
+      "status": "MERGED_AUTOMATED_PASS",
+      "summary": "Grand Piano manifest-backed audition with bounded nearest-sample mapping, bounded caches, polyphony, release envelope, noteOff/stopAll/dispose safety."
     },
     {
       "id": "AUDIO-01B",
-      "status": "AUTOMATED_PASS_PHYSICAL_PENDING",
-      "evidence": [
-        "explicit user-gesture AudioContext unlock",
-        "WebKit real decode/schedule regression",
-        "request-to-schedule instrumentation",
-        "bounded mobile cache and voice limits",
-        "degraded-mode contract"
-      ]
+      "status": "MERGED_AUTOMATED_PASS_PHYSICAL_PENDING",
+      "summary": "Explicit user-gesture unlock, WebKit decode/schedule regression, request-to-schedule instrumentation, mobile voice/cache bounds and degraded modes."
     },
     {
       "id": "AUDIO-01C",
-      "status": "EDITOR_AUTOMATED_PASS_PHYSICAL_PENDING",
-      "editor_repository": "khfy7wpr5p-maker/st-score-editor-core",
-      "editor_pull_request": 153,
-      "editor_head": "b76c30bdcbf4d7292ce2227c3c0da3b81f2a7dce",
-      "evidence": [
-        "SemanticAddressV3 NOTE to canonical pitch audition adapter",
-        "REST/event produces no audition request",
-        "stale revision fails closed",
-        "audio failure does not invalidate selection",
-        "audition does not mutate EditorSessionV4 history",
-        "Node 18/20/22 Editor Core CI success"
-      ]
+      "status": "MERGED_AUTOMATED_PASS_PHYSICAL_PENDING",
+      "summary": "Editor Core SemanticAddressV3 NOTE to canonical pitch AuditionRequest adapter; REST/event silence; stale revision fail-closed; audio failure independent from selection; no EditorSessionV4 history mutation."
     },
     {
       "id": "AUDIO-02",
-      "status": "AUTOMATED_PASS_PHYSICAL_PENDING",
-      "evidence": [
-        "FreePats Classical Guitar provenance pinned",
-        "bounded guitar range mapping",
-        "natural release profile",
-        "Grand Piano to Classical Guitar switching",
-        "optional string/fret fields only from exact host evidence",
-        "WebKit instrument-switch regression success"
-      ]
+      "status": "MERGED_AUTOMATED_PASS_PHYSICAL_PENDING",
+      "summary": "Classical Guitar profile with pinned FreePats provenance, bounded mapping, natural release, instrument switching and exact-only optional string/fret evidence."
     },
     {
       "id": "AUDIO-03-SDK-HARDENING",
-      "status": "AUTOMATED_PASS",
-      "evidence": [
-        "capability negotiation",
-        "performance budget documentation",
-        "consumer example",
-        "pinned tooling",
-        "latest Audio Engine CI success"
-      ]
+      "status": "MERGED_AUTOMATED_PASS",
+      "summary": "Capability negotiation, consumer example, pinned tooling and documented performance budgets."
     }
   ],
-  "ci": {
-    "audio_engine": {
-      "run_id": 34765262991,
-      "head": "9a35a945e8e37ad03a6a885935cae3d02eef4f6a",
-      "conclusion": "success",
-      "gates": ["Node 20 unit/typecheck", "Node 22 unit/typecheck", "WebKit browser"]
-    },
-    "editor_core": {
-      "run_id": 34765192299,
-      "head": "b76c30bdcbf4d7292ce2227c3c0da3b81f2a7dce",
-      "conclusion": "success",
-      "gates": ["Node 18 core", "Node 20 core", "Node 22 core"]
-    }
-  },
   "sample_provenance": {
-    "grand_piano": "Salamander Grand Piano / Tonejs audio source pinned by revision; license provenance documented",
-    "classical_guitar": "FreePats Spanish Classical Guitar pinned source; CC0 provenance documented",
-    "sample_binaries_committed_to_this_repository": false
+    "grand_piano": "Salamander Grand Piano / Tonejs source pinned by revision; provenance documented.",
+    "classical_guitar": "FreePats Spanish Classical Guitar pinned source; CC0 provenance documented.",
+    "sample_binaries_committed_to_repository": false
+  },
+  "remaining_external_gate": {
+    "id": "PHYSICAL-IOS-AUDITION-VALIDATION",
+    "github_issue": 2,
+    "issue_url": "https://github.com/khfy7wpr5p-maker/st-score-audio-engine/issues/2",
+    "status": "OPEN_HUMAN_DEVICE_EVIDENCE_REQUIRED",
+    "checks": [
+      "physical iPhone Safari Grand Piano NOTE audition",
+      "physical iPhone Safari REST silence",
+      "physical iPhone Safari Classical Guitar NOTE/chord audition",
+      "Piano -> Guitar -> Piano switching",
+      "real speaker-output observation after user-gesture unlock",
+      "device/iOS/Safari evidence recorded separately from automated WebKit"
+    ]
   },
   "human_approval": {
-    "merge_to_main": "APPROVED_BY_USER_IN_CHAT_2026-09-13",
+    "merge_to_main": "APPROVED_AND_COMPLETED_2026-09-13",
     "production_release": "NOT_APPROVED",
     "production_deployment": "NOT_APPROVED",
-    "seslitab_cutover": "NOT_APPROVED"
+    "seslitab_cutover": "NOT_APPROVED",
+    "breaking_public_contract_change": "NOT_APPROVED"
   },
-  "remaining_gates": [
-    "physical iPhone Safari Grand Piano audition",
-    "physical iPhone Safari REST silence verification",
-    "physical iPhone Safari Classical Guitar audition and instrument switching",
-    "record physical-device evidence separately from automated WebKit"
-  ],
-  "next_milestone": "PHYSICAL-IOS-AUDITION-VALIDATION; no production release or SesliTab cutover until separately approved",
   "invariants": [
     "no audio-side canonical score mutation",
     "no renderer-owned playback state or AudioContext",
@@ -125,7 +97,8 @@
     "no silent unlock/sample failure",
     "bounded voices and sample caches",
     "no sample asset without explicit provenance",
-    "no physical-device PASS inferred from WebKit automation",
+    "no physical-device PASS inferred from automated WebKit",
     "audition must not create EditorSessionV4 history"
-  ]
+  ],
+  "next_action": "Run and record GitHub Issue #2 physical iPhone Safari validation. Do not release, deploy or perform SesliTab production cutover without separate explicit human approval."
 }
