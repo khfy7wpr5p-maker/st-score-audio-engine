@@ -1,5 +1,6 @@
 import { createAudioEngine } from './audio-engine.js';
 import { ManifestSampleProvider } from './manifest-sample-provider.js';
+import { INSTRUMENT_CATALOG, getInstrumentProfile, listInstrumentProfiles } from './instruments/catalog.js';
 import { SALAMANDER_GRAND_PIANO_MANIFEST } from './instruments/salamander-grand-piano.js';
 import { FREEPATS_CLASSICAL_GUITAR_MANIFEST } from './instruments/freepats-classical-guitar.js';
 
@@ -11,6 +12,9 @@ const target = globalThis as typeof globalThis & {
     version: typeof SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION;
     createAudioEngine: typeof createAudioEngine;
     ManifestSampleProvider: typeof ManifestSampleProvider;
+    INSTRUMENT_CATALOG: typeof INSTRUMENT_CATALOG;
+    getInstrumentProfile: typeof getInstrumentProfile;
+    listInstrumentProfiles: typeof listInstrumentProfiles;
     SALAMANDER_GRAND_PIANO_MANIFEST: typeof SALAMANDER_GRAND_PIANO_MANIFEST;
     FREEPATS_CLASSICAL_GUITAR_MANIFEST: typeof FREEPATS_CLASSICAL_GUITAR_MANIFEST;
   }>;
@@ -25,6 +29,9 @@ Object.defineProperty(target, SCORE_AUDIO_ENGINE_GLOBAL, {
     version: SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION,
     createAudioEngine,
     ManifestSampleProvider,
+    INSTRUMENT_CATALOG,
+    getInstrumentProfile,
+    listInstrumentProfiles,
     SALAMANDER_GRAND_PIANO_MANIFEST,
     FREEPATS_CLASSICAL_GUITAR_MANIFEST
   }),

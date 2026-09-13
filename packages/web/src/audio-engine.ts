@@ -12,6 +12,7 @@ import {
 } from "@st/score-audio-contracts";
 import { FREEPATS_CLASSICAL_GUITAR_MANIFEST } from "./instruments/freepats-classical-guitar.js";
 import { SALAMANDER_GRAND_PIANO_MANIFEST } from "./instruments/salamander-grand-piano.js";
+import { getInstrumentProfile, listInstrumentProfiles, type InstrumentProfileV1 } from "./instruments/catalog.js";
 import { ManifestSampleProvider, SampleProviderError } from "./manifest-sample-provider.js";
 import { type ResolvedSample, type SampleProvider, type SampleProviderCacheStats } from "./sample-provider.js";
 import { VoiceManager } from "./voice-manager.js";
@@ -86,9 +87,18 @@ export class WebAudioEngine {
 
   async setInstrument(instrumentId: InstrumentId): Promise<void> {
     this.assertNotDisposed();
+    getInstrumentProfile(instrumentId);
     if (this.instrumentId === instrumentId) return;
     this.instrumentId = instrumentId;
     await this.sampleProvider.prepare?.(instrumentId);
+  }
+
+  getInstrumentProfile(instrumentId: InstrumentId = this.instrumentId): Readonly<InstrumentProfileV1> {
+    return getInstrumentProfile(instrumentId);
+  }
+
+  listInstrumentProfiles(): readonly Readonly<InstrumentProfileV1>[] {
+    return listInstrumentProfiles();
   }
 
   async audition(input: AuditionRequest): Promise<AuditionResult> {
@@ -114,7 +124,16 @@ export class WebAudioEngine {
       }
       return { ok: false, error: { code: "SAMPLE_UNAVAILABLE", message: cause instanceof Error ? cause.message : "Sample resolution failed" } };
     }
-    if (!sample) return { ok: false, error: { code: "SAMPLE_UNAVAILABLE", message: "No sample is available for the requested canonical pitch" } };
+    if (!sample) {
+      const profile = getInstrumentProfile(request.instrumentId);
+      return {
+        ok: false,
+        error: {
+          code: "SAMPLE_UNAVAILABLE",
+          message: `${profile.displayName} sample profile is ${profile.sampleReadiness.toLowerCase()}; no qualified runtime sample is available`
+        }
+      };
+    }
 
     try {
       const now = this.context.currentTime;
@@ -127,7 +146,7 @@ export class WebAudioEngine {
       const sampleGain = sample.gain ?? 1;
       const gainValue = Math.min(1, Math.max(0, velocity * sampleGain));
       const durationMs = request.durationMs ?? DEFAULT_DURATION_MS;
-      const releaseSeconds = request.instrumentId === "CLASSICAL_GUITAR" ? 0.18 : 0.12;
+      const releaseSeconds = getInstrumentProfile(request.instrumentId).releaseSeconds;
       const releaseStart = now + durationMs / 1000;
       gain.gain.setValueAtTime(gainValue, now);
       gain.gain.setValueAtTime(gainValue, releaseStart);

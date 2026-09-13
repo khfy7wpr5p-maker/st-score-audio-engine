@@ -1,6 +1,32 @@
 export const AUDIO_CONTRACT_VERSION = "0.1.0" as const;
 
-export type InstrumentId = "GRAND_PIANO" | "CLASSICAL_GUITAR";
+export const INSTRUMENT_IDS = Object.freeze([
+  "GRAND_PIANO",
+  "CLASSICAL_GUITAR",
+  "VIOLIN",
+  "VIOLA",
+  "CELLO",
+  "DOUBLE_BASS",
+  "FLUTE",
+  "OBOE",
+  "CLARINET_BB",
+  "BASSOON",
+  "TRUMPET_BB",
+  "FRENCH_HORN_F",
+  "TROMBONE",
+  "TUBA"
+] as const);
+
+export type InstrumentId = (typeof INSTRUMENT_IDS)[number];
+
+export type InstrumentFamily =
+  | "KEYBOARD"
+  | "PLUCKED_STRING"
+  | "BOWED_STRING"
+  | "WOODWIND"
+  | "BRASS";
+
+export type InstrumentLifecycle = "ACTIVE" | "SUSPENDED" | "SCAFFOLD";
 
 export interface CanonicalPitch {
   readonly midi: number;
