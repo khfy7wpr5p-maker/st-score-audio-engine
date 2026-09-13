@@ -53,6 +53,17 @@ describe("WebAudioEngine", () => {
     expect(context.sources).toHaveLength(0);
   });
 
+  it("requires audition requests to match the active instrument and supports explicit switching", async () => {
+    const context = new FakeAudioContext();
+    const engine = createAudioEngine({ sampleProvider, audioContextFactory: () => context as unknown as AudioContext });
+    await engine.unlockFromUserGesture();
+    const guitarRequest = { ...request(), requestId: "g1", instrumentId: "CLASSICAL_GUITAR" as const };
+    expect(await engine.audition(guitarRequest)).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    await engine.setInstrument("CLASSICAL_GUITAR");
+    expect(await engine.audition(guitarRequest)).toEqual({ ok: true, requestId: "g1" });
+    expect(engine.getStatus().instrumentId).toBe("CLASSICAL_GUITAR");
+  });
+
   it("supports explicit noteOff", async () => {
     const context = new FakeAudioContext();
     const engine = createAudioEngine({ sampleProvider, audioContextFactory: () => context as unknown as AudioContext });

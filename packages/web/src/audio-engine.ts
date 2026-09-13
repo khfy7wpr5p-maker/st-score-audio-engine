@@ -10,6 +10,7 @@ import {
   type InstrumentId,
   type UnlockResult
 } from "@st/score-audio-contracts";
+import { FREEPATS_CLASSICAL_GUITAR_MANIFEST } from "./instruments/freepats-classical-guitar.js";
 import { SALAMANDER_GRAND_PIANO_MANIFEST } from "./instruments/salamander-grand-piano.js";
 import { ManifestSampleProvider, SampleProviderError } from "./manifest-sample-provider.js";
 import { type ResolvedSample, type SampleProvider, type SampleProviderCacheStats } from "./sample-provider.js";
@@ -52,7 +53,7 @@ export class WebAudioEngine {
   private lastRequestToScheduleMs: number | undefined;
 
   constructor(options: AudioEngineOptions = {}) {
-    this.sampleProvider = options.sampleProvider ?? new ManifestSampleProvider([SALAMANDER_GRAND_PIANO_MANIFEST]);
+    this.sampleProvider = options.sampleProvider ?? new ManifestSampleProvider([SALAMANDER_GRAND_PIANO_MANIFEST, FREEPATS_CLASSICAL_GUITAR_MANIFEST]);
     this.audioContextFactory = options.audioContextFactory ?? (() => new AudioContext());
     this.voiceLimit = options.voiceLimit ?? 24;
     this.voices = new VoiceManager(this.voiceLimit);
@@ -95,6 +96,9 @@ export class WebAudioEngine {
     if (this.phase === "DISPOSED") return { ok: false, error: { code: "ENGINE_DISPOSED", message: "audio engine is disposed" } };
     const error = validateAuditionRequest(input);
     if (error) return { ok: false, error: { code: "INVALID_REQUEST", message: error } };
+    if (input.instrumentId !== this.instrumentId) {
+      return { ok: false, error: { code: "INVALID_REQUEST", message: `request instrument ${input.instrumentId} does not match active instrument ${this.instrumentId}` } };
+    }
     if (!this.context || this.context.state !== "running") {
       return { ok: false, error: { code: "AUDIO_UNLOCK_REQUIRED", message: "AudioContext must be unlocked from a user gesture" } };
     }
