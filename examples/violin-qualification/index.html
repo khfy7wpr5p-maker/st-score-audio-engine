@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ST Score Audio — Violin Qualification</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color-scheme: light dark; }
+    body { margin: 0; padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+    main { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.35rem; }
+    .status { padding: 12px; border: 1px solid currentColor; border-radius: 10px; margin: 12px 0; white-space: pre-wrap; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button { min-height: 52px; border-radius: 10px; border: 1px solid currentColor; font-size: 1rem; padding: 10px; }
+    .full { grid-column: 1 / -1; }
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; max-height: 280px; overflow: auto; }
+    small { opacity: .75; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>ST Score Audio — Violin Qualification Spike</h1>
+  <p><small>VSCO 2 Community Edition Solo Violin / Arco Vibrato (CC0) kullanılır. Bu sayfa yalnız qualification içindir; VIOLIN henüz ürün runtime'ında ACTIVE değildir.</small></p>
+  <div id="status" class="status">QUALIFICATION_READY_FOR_USER_GESTURE</div>
+  <div class="grid">
+    <button id="unlock" class="full">1. Audio Unlock / Resume</button>
+    <button id="piano">Piano C4 Regression</button>
+    <button id="g3">Violin G3</button>
+    <button id="c4">Violin C4</button>
+    <button id="a4">Violin A4</button>
+    <button id="e5">Violin E5</button>
+    <button id="c6">Violin C6</button>
+    <button id="stop" class="full">Stop All</button>
+  </div>
+  <div id="log" class="status log"></div>
+</main>
+<script type="module">
+  import {
+    ManifestSampleProvider,
+    SALAMANDER_GRAND_PIANO_MANIFEST,
+    VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST,
+    createAudioEngine
+  } from '/packages/web/src/index.ts';
+
+  const status = document.querySelector('#status');
+  const logNode = document.querySelector('#log');
+  const provider = new ManifestSampleProvider([
+    SALAMANDER_GRAND_PIANO_MANIFEST,
+    VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST
+  ]);
+  const engine = createAudioEngine({ sampleProvider: provider });
+  let seq = 0;
+
+  const log = (message) => {
+    const line = `${new Date().toISOString()}  ${message}`;
+    logNode.textContent = `${line}\n${logNode.textContent}`.slice(0, 12000);
+  };
+
+  const show = (label) => {
+    const s = engine.getStatus();
+    const d = engine.getDiagnostics();
+    status.textContent = `${label}\nphase=${s.phase} instrument=${s.instrumentId} voices=${s.activeVoices}/${s.voiceLimit} context=${s.audioContextState ?? 'none'}\naudition=${d.auditionSuccesses}/${d.auditionAttempts}${d.lastRequestToScheduleMs === undefined ? '' : ` scheduleMs=${d.lastRequestToScheduleMs.toFixed(1)}`}`;
+  };
+
+  async function ensureUnlocked() {
+    const result = await engine.unlockFromUserGesture();
+    if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
+    if (engine.getStatus().audioContextState !== 'running') throw new Error('AUDIO_UNLOCK_REQUIRED');
+  }
+
+  async function audition(midi, instrumentId, durationMs = 1200) {
+    await ensureUnlocked();
+    await engine.setInstrument(instrumentId);
+    const result = await engine.audition({
+      requestId: `violin-qualification-${++seq}`,
+      sourceRevisionId: 'physical-violin-qualification-v1',
+      pitch: { midi },
+      instrumentId,
+      durationMs,
+      velocity: 0.85
+    });
+    if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
+    log(`AUDITION_OK ${instrumentId} midi=${midi} request=${result.requestId}`);
+    show(`AUDITION_OK ${instrumentId} midi=${midi} — fiziksel sesi doğrula`);
+  }
+
+  async function run(label, fn) {
+    try { await fn(); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      status.textContent = `${label}_FAIL\n${message}`;
+      log(`${label}_FAIL ${message}`);
+    }
+  }
+
+  document.querySelector('#unlock').addEventListener('click', () => run('UNLOCK', async () => {
+    await ensureUnlocked();
+    show('UNLOCK_OK');
+    log('UNLOCK_OK');
+  }));
+  document.querySelector('#piano').addEventListener('click', () => run('PIANO_C4', () => audition(60, 'GRAND_PIANO', 700)));
+  document.querySelector('#g3').addEventListener('click', () => run('VIOLIN_G3', () => audition(55, 'VIOLIN')));
+  document.querySelector('#c4').addEventListener('click', () => run('VIOLIN_C4', () => audition(60, 'VIOLIN')));
+  document.querySelector('#a4').addEventListener('click', () => run('VIOLIN_A4', () => audition(69, 'VIOLIN')));
+  document.querySelector('#e5').addEventListener('click', () => run('VIOLIN_E5', () => audition(76, 'VIOLIN')));
+  document.querySelector('#c6').addEventListener('click', () => run('VIOLIN_C6', () => audition(84, 'VIOLIN')));
+  document.querySelector('#stop').addEventListener('click', () => {
+    engine.stopAll();
+    show('STOP_ALL_OK');
+    log('STOP_ALL_OK');
+  });
+</script>
+</body>
+</html>
