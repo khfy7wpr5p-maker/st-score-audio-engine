@@ -6,3 +6,4 @@ export * from "./voice-manager.js";
 export * from "./instruments/catalog.js";
 export * from "./instruments/salamander-grand-piano.js";
 export * from "./instruments/freepats-classical-guitar.js";
+export * from "./instruments/vsco2ce-solo-violin.js";
