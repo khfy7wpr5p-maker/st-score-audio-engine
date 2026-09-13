@@ -10,7 +10,9 @@ import {
   type InstrumentId,
   type UnlockResult
 } from "@st/score-audio-contracts";
-import { EmptySampleProvider, type SampleProvider } from "./sample-provider.js";
+import { SALAMANDER_GRAND_PIANO_MANIFEST } from "./instruments/salamander-grand-piano.js";
+import { ManifestSampleProvider, SampleProviderError } from "./manifest-sample-provider.js";
+import { type ResolvedSample, type SampleProvider, type SampleProviderCacheStats } from "./sample-provider.js";
 import { VoiceManager } from "./voice-manager.js";
 
 const CAPABILITIES: readonly AudioEngineCapability[] = Object.freeze([
@@ -26,6 +28,14 @@ export interface AudioEngineOptions {
   readonly audioContextFactory?: () => AudioContext;
   readonly voiceLimit?: number;
   readonly defaultInstrument?: InstrumentId;
+  readonly monotonicClockMs?: () => number;
+}
+
+export interface AudioEngineDiagnostics {
+  readonly auditionAttempts: number;
+  readonly auditionSuccesses: number;
+  readonly lastRequestToScheduleMs?: number;
+  readonly sampleCache?: SampleProviderCacheStats;
 }
 
 export class WebAudioEngine {
@@ -33,16 +43,21 @@ export class WebAudioEngine {
   private readonly audioContextFactory: () => AudioContext;
   private readonly voices: VoiceManager;
   private readonly voiceLimit: number;
+  private readonly monotonicClockMs: () => number;
   private context: AudioContext | undefined;
   private instrumentId: InstrumentId;
   private phase: AudioEngineStatus["phase"] = "NEW";
+  private auditionAttempts = 0;
+  private auditionSuccesses = 0;
+  private lastRequestToScheduleMs: number | undefined;
 
   constructor(options: AudioEngineOptions = {}) {
-    this.sampleProvider = options.sampleProvider ?? new EmptySampleProvider();
+    this.sampleProvider = options.sampleProvider ?? new ManifestSampleProvider([SALAMANDER_GRAND_PIANO_MANIFEST]);
     this.audioContextFactory = options.audioContextFactory ?? (() => new AudioContext());
     this.voiceLimit = options.voiceLimit ?? 24;
     this.voices = new VoiceManager(this.voiceLimit);
     this.instrumentId = options.defaultInstrument ?? "GRAND_PIANO";
+    this.monotonicClockMs = options.monotonicClockMs ?? (() => globalThis.performance?.now?.() ?? Date.now());
   }
 
   async prepare(): Promise<void> {
@@ -75,6 +90,8 @@ export class WebAudioEngine {
   }
 
   async audition(input: AuditionRequest): Promise<AuditionResult> {
+    const requestReceivedAt = this.monotonicClockMs();
+    this.auditionAttempts += 1;
     if (this.phase === "DISPOSED") return { ok: false, error: { code: "ENGINE_DISPOSED", message: "audio engine is disposed" } };
     const error = validateAuditionRequest(input);
     if (error) return { ok: false, error: { code: "INVALID_REQUEST", message: error } };
@@ -83,7 +100,15 @@ export class WebAudioEngine {
     }
 
     const request = snapshotRequest(input);
-    const sample = await this.sampleProvider.resolve(request.instrumentId, request.pitch);
+    let sample: ResolvedSample | null;
+    try {
+      sample = await this.sampleProvider.resolve(request.instrumentId, request.pitch, this.context);
+    } catch (cause) {
+      if (cause instanceof SampleProviderError) {
+        return { ok: false, error: { code: cause.code, message: cause.message } };
+      }
+      return { ok: false, error: { code: "SAMPLE_UNAVAILABLE", message: cause instanceof Error ? cause.message : "Sample resolution failed" } };
+    }
     if (!sample) return { ok: false, error: { code: "SAMPLE_UNAVAILABLE", message: "No sample is available for the requested canonical pitch" } };
 
     try {
@@ -95,13 +120,20 @@ export class WebAudioEngine {
       source.playbackRate.setValueAtTime(2 ** (semitones / 12), now);
       const velocity = request.velocity ?? 0.8;
       const sampleGain = sample.gain ?? 1;
-      gain.gain.setValueAtTime(Math.min(1, Math.max(0, velocity * sampleGain)), now);
+      const gainValue = Math.min(1, Math.max(0, velocity * sampleGain));
+      const durationMs = request.durationMs ?? DEFAULT_DURATION_MS;
+      const releaseSeconds = request.instrumentId === "CLASSICAL_GUITAR" ? 0.18 : 0.12;
+      const releaseStart = now + durationMs / 1000;
+      gain.gain.setValueAtTime(gainValue, now);
+      gain.gain.setValueAtTime(gainValue, releaseStart);
+      gain.gain.linearRampToValueAtTime(0, releaseStart + releaseSeconds);
       source.connect(gain);
       gain.connect(this.context.destination);
       this.voices.add({ requestId: request.requestId, source, gain, startedAt: now }, now);
       source.start(now);
-      const durationMs = request.durationMs ?? DEFAULT_DURATION_MS;
-      source.stop(now + durationMs / 1000 + 0.02);
+      source.stop(releaseStart + releaseSeconds + 0.01);
+      this.auditionSuccesses += 1;
+      this.lastRequestToScheduleMs = Math.max(0, this.monotonicClockMs() - requestReceivedAt);
       return { ok: true, requestId: request.requestId };
     } catch (cause) {
       this.voices.stop(request.requestId, this.context.currentTime);
@@ -128,6 +160,16 @@ export class WebAudioEngine {
       voiceLimit: this.voiceLimit,
       audioContextState: this.context?.state,
       capabilities: CAPABILITIES
+    });
+  }
+
+  getDiagnostics(): AudioEngineDiagnostics {
+    const sampleCache = this.sampleProvider.getCacheStats?.();
+    return Object.freeze({
+      auditionAttempts: this.auditionAttempts,
+      auditionSuccesses: this.auditionSuccesses,
+      ...(this.lastRequestToScheduleMs === undefined ? {} : { lastRequestToScheduleMs: this.lastRequestToScheduleMs }),
+      ...(sampleCache === undefined ? {} : { sampleCache })
     });
   }
 

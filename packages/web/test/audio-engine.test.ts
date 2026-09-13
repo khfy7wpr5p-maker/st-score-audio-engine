@@ -39,7 +39,7 @@ describe("WebAudioEngine", () => {
 
   it("reports missing samples explicitly", async () => {
     const context = new FakeAudioContext();
-    const engine = createAudioEngine({ audioContextFactory: () => context as unknown as AudioContext });
+    const engine = createAudioEngine({ sampleProvider: { async resolve() { return null; } }, audioContextFactory: () => context as unknown as AudioContext });
     await engine.unlockFromUserGesture();
     expect(await engine.audition(request())).toMatchObject({ ok: false, error: { code: "SAMPLE_UNAVAILABLE" } });
   });
@@ -60,6 +60,19 @@ describe("WebAudioEngine", () => {
     await engine.audition(request());
     expect(engine.noteOff("r1")).toBe(true);
     expect(engine.getStatus().activeVoices).toBe(0);
+  });
+
+  it("records request-to-schedule instrumentation without claiming output latency", async () => {
+    const context = new FakeAudioContext();
+    let clock = 10;
+    const engine = createAudioEngine({
+      sampleProvider,
+      audioContextFactory: () => context as unknown as AudioContext,
+      monotonicClockMs: () => (clock += 2)
+    });
+    await engine.unlockFromUserGesture();
+    await engine.audition(request());
+    expect(engine.getDiagnostics()).toMatchObject({ auditionAttempts: 1, auditionSuccesses: 1, lastRequestToScheduleMs: 2 });
   });
 
   it("stops all and disposes deterministically", async () => {

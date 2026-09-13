@@ -1,8 +1,8 @@
 # Roadmap
 
-- AUDIO-00: foundation/contracts — current branch.
-- AUDIO-01A: Grand Piano core audition with licensed sample manifest, mapping, cache and envelopes.
-- AUDIO-01B: browser/iPhone readiness, latency and memory instrumentation.
-- AUDIO-01C: ST Score Editor NOTE touch integration after 01A/B are green.
+- AUDIO-00: foundation/contracts — implemented and CI-green on PR #1 before AUDIO-01 work.
+- AUDIO-01A: Grand Piano core audition — implemented on the same feature branch; pinned licensed manifest, bounded mapping/cache, envelope, diagnostics and tests.
+- AUDIO-01B: browser/iPhone readiness — automated WebKit unlock/decode/scheduling gate implemented; physical iPhone validation still required.
+- AUDIO-01C: ST Score Editor NOTE touch integration — may begin only after current AUDIO-01A/B automated gates remain green; physical device PASS remains separately required for milestone exit.
 - AUDIO-02: Classical Guitar profile and optional canonical string/fret-aware sample selection.
 - AUDIO-03: reusable SDK hardening and cross-app examples.

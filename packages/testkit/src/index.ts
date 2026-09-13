@@ -31,6 +31,7 @@ export class FakeAudioContext {
   destination = {} as AudioDestinationNode;
   readonly sources: FakeBufferSourceNode[] = [];
   readonly gains: FakeGainNode[] = [];
+  readonly decodeInputs: ArrayBuffer[] = [];
   createBufferSource(): AudioBufferSourceNode {
     const node = new FakeBufferSourceNode();
     this.sources.push(node);
@@ -40,6 +41,10 @@ export class FakeAudioContext {
     const node = new FakeGainNode();
     this.gains.push(node);
     return node as unknown as GainNode;
+  }
+  async decodeAudioData(audioData: ArrayBuffer): Promise<AudioBuffer> {
+    this.decodeInputs.push(audioData);
+    return fakeAudioBuffer();
   }
   async resume(): Promise<void> { this.state = "running"; }
   async close(): Promise<void> { this.state = "closed"; }

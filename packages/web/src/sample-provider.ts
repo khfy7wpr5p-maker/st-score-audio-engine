@@ -6,9 +6,19 @@ export interface ResolvedSample {
   readonly gain?: number;
 }
 
+export interface SampleProviderCacheStats {
+  readonly rawEntries: number;
+  readonly decodedEntries: number;
+  readonly rawHits: number;
+  readonly rawMisses: number;
+  readonly decodedHits: number;
+  readonly decodedMisses: number;
+}
+
 export interface SampleProvider {
   prepare?(instrumentId: InstrumentId): Promise<void>;
-  resolve(instrumentId: InstrumentId, pitch: CanonicalPitch): Promise<ResolvedSample | null>;
+  resolve(instrumentId: InstrumentId, pitch: CanonicalPitch, context: AudioContext): Promise<ResolvedSample | null>;
+  getCacheStats?(): SampleProviderCacheStats;
   dispose?(): Promise<void> | void;
 }
 
