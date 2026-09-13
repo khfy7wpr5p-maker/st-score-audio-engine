@@ -1,0 +1,14 @@
+<!doctype html>
+<html><body>
+<button id="unlock">unlock</button>
+<output id="result">NEW</output>
+<script type="module">
+  import { createAudioEngine } from '/packages/web/src/index.ts';
+  const engine = createAudioEngine();
+  window.__stAudioEngine = engine;
+  document.querySelector('#unlock').addEventListener('click', async () => {
+    const result = await engine.unlockFromUserGesture();
+    document.querySelector('#result').textContent = result.ok ? engine.getStatus().phase : result.error.code;
+  });
+</script>
+</body></html>

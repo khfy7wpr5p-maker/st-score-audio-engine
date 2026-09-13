@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "document_type": "AUTONOMOUS_DEVELOPER_HANDOFF_STATUS",
+  "project": "ST Score Audio Engine",
+  "task_id": "ST_AUDIO_01_02_NOTE_AUDITION_FOUNDATION",
+  "branch": "audio-00-foundation",
+  "milestone": "AUDIO-00",
+  "status": "IMPLEMENTED_PENDING_CI",
+  "completed": [
+    "versioned contracts",
+    "runtime request validation",
+    "Web Audio engine lifecycle skeleton",
+    "SampleProvider abstraction",
+    "bounded VoiceManager",
+    "deterministic testkit",
+    "Node unit gates",
+    "WebKit browser smoke gate",
+    "architecture and integration docs"
+  ],
+  "explicitly_not_done": [
+    "production piano samples",
+    "physical iPhone validation",
+    "ST Score Editor integration",
+    "merge to main"
+  ],
+  "next_milestone": "AUDIO-01A Grand Piano core audition after CI is green and a redistributable sample source with explicit provenance is selected",
+  "invariants": [
+    "no audio-side canonical score mutation",
+    "no renderer-owned playback state",
+    "no DOM/SVG/geometry pitch authority",
+    "no silent unlock/sample failure",
+    "bounded voices",
+    "no unlicensed production samples"
+  ]
+}
