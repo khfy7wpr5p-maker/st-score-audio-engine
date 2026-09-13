@@ -32,5 +32,7 @@ jobs:
           node-version: 22
       - run: npm install --ignore-scripts
       - run: npm run build
+      - run: npm run build:browser
+      - run: test -s dist/browser/st-score-audio-engine.js
       - run: npx playwright install --with-deps webkit
       - run: npm run test:browser

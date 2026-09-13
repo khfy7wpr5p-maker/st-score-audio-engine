@@ -7,6 +7,7 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "build": "tsc -b packages/contracts packages/testkit packages/web",
+    "build:browser": "vite build --config vite.audio.config.ts",
     "typecheck": "tsc -b packages/contracts packages/testkit packages/web --pretty false",
     "test": "npm run test:unit",
     "test:unit": "vitest run",
