@@ -73,6 +73,13 @@ describe("WebAudioEngine", () => {
     expect(engine.getStatus().activeVoices).toBe(0);
   });
 
+  it("exposes stable capability negotiation without mutable score state", () => {
+    const engine = createAudioEngine({ sampleProvider });
+    expect(engine.supports("note-audition")).toBe(true);
+    expect(engine.supports("sample-instrument")).toBe(true);
+    expect(engine.getCapabilities()).toContain("ios-user-gesture-unlock");
+  });
+
   it("records request-to-schedule instrumentation without claiming output latency", async () => {
     const context = new FakeAudioContext();
     let clock = 10;

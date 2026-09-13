@@ -14,9 +14,9 @@
     "browser:serve": "vite --host 127.0.0.1 --port 4173"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "typescript": "^5.9.2",
-    "vite": "^7.1.5",
-    "vitest": "^3.2.4"
+    "@playwright/test": "1.55.0",
+    "typescript": "5.9.2",
+    "vite": "7.1.5",
+    "vitest": "3.2.4"
   }
 }

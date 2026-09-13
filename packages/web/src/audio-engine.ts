@@ -86,6 +86,7 @@ export class WebAudioEngine {
 
   async setInstrument(instrumentId: InstrumentId): Promise<void> {
     this.assertNotDisposed();
+    if (this.instrumentId === instrumentId) return;
     this.instrumentId = instrumentId;
     await this.sampleProvider.prepare?.(instrumentId);
   }
@@ -153,6 +154,14 @@ export class WebAudioEngine {
   stopAll(): void {
     if (!this.context || this.phase === "DISPOSED") return;
     this.voices.stopAll(this.context.currentTime);
+  }
+
+  getCapabilities(): readonly AudioEngineCapability[] {
+    return CAPABILITIES;
+  }
+
+  supports(capability: AudioEngineCapability): boolean {
+    return CAPABILITIES.includes(capability);
   }
 
   getStatus(): AudioEngineStatus {
