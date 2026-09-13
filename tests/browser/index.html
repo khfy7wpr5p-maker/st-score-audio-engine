@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<body>
+<button id="unlock">unlock and audition</button>
+<output id="result">NEW</output>
+<script type="module">
+  import { createAudioEngine, ManifestSampleProvider } from '/packages/web/src/index.ts';
+
+  function makeTinyWav(frequency) {
+    const sampleRate = 8000;
+    const frames = 400;
+    const buffer = new ArrayBuffer(44 + frames * 2);
+    const view = new DataView(buffer);
+    const write = (offset, text) => [...text].forEach((ch, index) => view.setUint8(offset + index, ch.charCodeAt(0)));
+    write(0, 'RIFF');
+    view.setUint32(4, 36 + frames * 2, true);
+    write(8, 'WAVE'); write(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    write(36, 'data'); view.setUint32(40, frames * 2, true);
+    for (let i = 0; i < frames; i += 1) {
+      const value = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 0.1;
+      view.setInt16(44 + i * 2, Math.max(-32768, Math.min(32767, Math.round(value * 32767))), true);
+    }
+    return new Blob([buffer], { type: 'audio/wav' });
+  }
+
+  function fixture(instrumentId, midi, frequency) {
+    const sampleUrl = URL.createObjectURL(makeTinyWav(frequency));
+    return {
+      manifestVersion: '1', id: `browser-${instrumentId}`, instrumentId, minMidi: midi, maxMidi: midi,
+      maxTransposeSemitones: 0, samples: [{ rootMidi: midi, path: sampleUrl }],
+      provenance: {
+        sourceUrl: 'local-browser-fixture', author: 'ST testkit', licenseId: 'generated-test-fixture',
+        licenseUrl: 'local-browser-fixture', attribution: 'generated deterministic browser fixture',
+        redistributionStatus: 'host-provided', sourceRevision: 'v1', checksum: { algorithm: 'generated', value: `${instrumentId}-tiny-wav-v1` }
+      }
+    };
+  }
+
+  const provider = new ManifestSampleProvider([
+    fixture('GRAND_PIANO', 60, 440),
+    fixture('CLASSICAL_GUITAR', 64, 330)
+  ]);
+  const engine = createAudioEngine({ sampleProvider: provider });
+  window.__stAudioEngine = engine;
+  document.querySelector('#unlock').addEventListener('click', async () => {
+    const result = document.querySelector('#result');
+    const unlocked = await engine.unlockFromUserGesture();
+    if (!unlocked.ok) { result.textContent = unlocked.error.code; return; }
+    const piano = await engine.audition({ requestId: 'piano-r1', sourceRevisionId: 'rev-1', pitch: { midi: 60 }, instrumentId: 'GRAND_PIANO', durationMs: 80 });
+    if (!piano.ok) { result.textContent = piano.error.code; return; }
+    await engine.setInstrument('CLASSICAL_GUITAR');
+    const guitar = await engine.audition({ requestId: 'guitar-r1', sourceRevisionId: 'rev-1', pitch: { midi: 64 }, instrumentId: 'CLASSICAL_GUITAR', durationMs: 80 });
+    result.textContent = guitar.ok ? 'SWITCH_OK' : guitar.error.code;
+  });
+</script>
+</body>
+</html>

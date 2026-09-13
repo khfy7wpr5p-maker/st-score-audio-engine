@@ -1,0 +1,22 @@
+{
+  "name": "st-score-audio-engine",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Reusable low-latency browser audio engine for ST music applications.",
+  "engines": { "node": ">=20" },
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "tsc -b packages/contracts packages/testkit packages/web",
+    "typecheck": "tsc -b packages/contracts packages/testkit packages/web --pretty false",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
+    "test:browser": "playwright test",
+    "browser:serve": "vite --host 127.0.0.1 --port 4173"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "typescript": "5.9.2",
+    "vite": "7.1.5",
+    "vitest": "3.2.4"
+  }
+}
