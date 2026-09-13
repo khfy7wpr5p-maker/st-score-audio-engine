@@ -1,6 +1,6 @@
-import type { AuditionRequest, InstrumentId } from "./types.js";
+import { INSTRUMENT_IDS, type AuditionRequest, type InstrumentId } from "./types.js";
 
-const IDS = new Set<InstrumentId>(["GRAND_PIANO", "CLASSICAL_GUITAR"]);
+const IDS = new Set<InstrumentId>(INSTRUMENT_IDS);
 const MAX_ID_LENGTH = 256;
 export const DEFAULT_DURATION_MS = 500;
 export const MAX_DURATION_MS = 10_000;
