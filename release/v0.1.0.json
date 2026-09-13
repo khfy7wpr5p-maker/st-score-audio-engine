@@ -1,0 +1,15 @@
+{
+  "release": "v0.1.0",
+  "target": "main",
+  "packages": {
+    "@st/score-audio-contracts": "0.1.0",
+    "@st/score-audio-web": "0.1.0"
+  },
+  "status": "APPROVED_FOR_GITHUB_RELEASE",
+  "scope": {
+    "grandPiano": "ACTIVE_QUALIFIED",
+    "classicalGuitar": "SUSPENDED",
+    "violin": "SCAFFOLD_UNQUALIFIED_QUALIFICATION_CANDIDATE"
+  },
+  "notes": "Publication identity only. This release does not promote suspended or scaffold instruments, does not change st-score-editor-core, and does not authorize SesliTab production cutover."
+}
