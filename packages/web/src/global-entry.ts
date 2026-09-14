@@ -6,7 +6,7 @@ import { FREEPATS_CLASSICAL_GUITAR_MANIFEST } from './instruments/freepats-class
 import { VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST } from './instruments/vsco2ce-solo-violin.js';
 
 export const SCORE_AUDIO_ENGINE_GLOBAL = 'STScoreAudioEngine' as const;
-export const SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION = '0.1.0' as const;
+export const SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION = '0.1.1' as const;
 
 const target = globalThis as typeof globalThis & {
   STScoreAudioEngine?: Readonly<{

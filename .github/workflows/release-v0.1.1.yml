@@ -1,0 +1,106 @@
+name: Release v0.1.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - release/v0.1.1.json
+      - release/v0.1.1.md
+      - .github/workflows/release-v0.1.1.yml
+      - package.json
+      - packages/web/package.json
+      - packages/web/src/global-entry.ts
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-v0.1.1
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Verify v0.1.1 package identities
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const contracts = JSON.parse(fs.readFileSync('packages/contracts/package.json', 'utf8'));
+          const web = JSON.parse(fs.readFileSync('packages/web/package.json', 'utf8'));
+          const marker = JSON.parse(fs.readFileSync('release/v0.1.1.json', 'utf8'));
+          const globalEntry = fs.readFileSync('packages/web/src/global-entry.ts', 'utf8');
+          const fail = (message) => { throw new Error(message); };
+          if (root.version !== '0.1.1') fail('root identity mismatch');
+          if (contracts.name !== '@st/score-audio-contracts' || contracts.version !== '0.1.0') fail('contracts identity mismatch');
+          if (web.name !== '@st/score-audio-web' || web.version !== '0.1.1') fail('web identity mismatch');
+          if (web.dependencies?.['@st/score-audio-contracts'] !== '0.1.0') fail('web/contracts dependency mismatch');
+          if (!globalEntry.includes("SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION = '0.1.1'")) fail('browser runtime identity mismatch');
+          if (marker.release !== 'v0.1.1') fail('release marker mismatch');
+          if (marker.packages?.['@st/score-audio-contracts'] !== '0.1.0') fail('marker contracts version mismatch');
+          if (marker.packages?.['@st/score-audio-web'] !== '0.1.1') fail('marker web version mismatch');
+          NODE
+
+      - name: Typecheck and unit test
+        run: |
+          npm run typecheck
+          npm run test:unit
+
+      - name: Build packages and browser SDK
+        run: |
+          npm run build
+          npm run build:browser
+          test -s dist/browser/st-score-audio-engine.js
+
+      - name: Build reproducible release assets
+        run: |
+          mkdir -p release-assets
+          npm pack ./packages/contracts --pack-destination release-assets
+          npm pack ./packages/web --pack-destination release-assets
+          cp dist/browser/st-score-audio-engine.js release-assets/st-score-audio-engine.browser.v0.1.1.js
+          (cd release-assets && sha256sum *.tgz *.js > SHA256SUMS.txt)
+          cat release-assets/SHA256SUMS.txt
+
+      - name: Refuse tag or release overwrite
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git rev-parse -q --verify refs/tags/v0.1.1 >/dev/null; then
+            echo 'v0.1.1 tag already exists; refusing overwrite' >&2
+            exit 1
+          fi
+          if gh release view v0.1.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'v0.1.1 GitHub Release already exists; refusing overwrite' >&2
+            exit 1
+          fi
+
+      - name: Create immutable v0.1.1 tag
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a v0.1.1 "$GITHUB_SHA" -m 'ST Score Audio Engine v0.1.1'
+          git push origin refs/tags/v0.1.1
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.1.1 release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title 'ST Score Audio Engine v0.1.1' \
+            --notes-file release/v0.1.1.md
