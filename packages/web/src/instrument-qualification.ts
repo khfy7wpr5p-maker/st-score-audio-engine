@@ -64,9 +64,9 @@ export const VIOLIN_QUALIFICATION_CANDIDATE_V1: Readonly<InstrumentQualification
     manifestValid: "PASS",
     pitchCoverage: "PASS",
     automatedBrowser: "PASS",
-    physicalPc: "PENDING",
-    physicalSafariIos: "PENDING",
-    physicalLatency: "PENDING"
+    physicalPc: "PASS",
+    physicalSafariIos: "PASS",
+    physicalLatency: "PASS"
   })
 });
 
