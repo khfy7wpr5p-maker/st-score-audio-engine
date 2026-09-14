@@ -34,5 +34,7 @@ jobs:
       - run: npm run build
       - run: npm run build:browser
       - run: test -s dist/browser/st-score-audio-engine.js
+      - run: npm run build:qualification:violin
+      - run: test -s dist/violin-qualification/index.html
       - run: npx playwright install --with-deps webkit
       - run: npm run test:browser
