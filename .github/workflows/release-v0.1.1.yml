@@ -9,6 +9,7 @@ on:
       - .github/workflows/release-v0.1.1.yml
       - package.json
       - packages/web/package.json
+      - packages/web/src/global-entry.ts
 
 permissions:
   contents: write
@@ -42,11 +43,13 @@ jobs:
           const contracts = JSON.parse(fs.readFileSync('packages/contracts/package.json', 'utf8'));
           const web = JSON.parse(fs.readFileSync('packages/web/package.json', 'utf8'));
           const marker = JSON.parse(fs.readFileSync('release/v0.1.1.json', 'utf8'));
+          const globalEntry = fs.readFileSync('packages/web/src/global-entry.ts', 'utf8');
           const fail = (message) => { throw new Error(message); };
           if (root.version !== '0.1.1') fail('root identity mismatch');
           if (contracts.name !== '@st/score-audio-contracts' || contracts.version !== '0.1.0') fail('contracts identity mismatch');
           if (web.name !== '@st/score-audio-web' || web.version !== '0.1.1') fail('web identity mismatch');
           if (web.dependencies?.['@st/score-audio-contracts'] !== '0.1.0') fail('web/contracts dependency mismatch');
+          if (!globalEntry.includes("SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION = '0.1.1'")) fail('browser runtime identity mismatch');
           if (marker.release !== 'v0.1.1') fail('release marker mismatch');
           if (marker.packages?.['@st/score-audio-contracts'] !== '0.1.0') fail('marker contracts version mismatch');
           if (marker.packages?.['@st/score-audio-web'] !== '0.1.1') fail('marker web version mismatch');
