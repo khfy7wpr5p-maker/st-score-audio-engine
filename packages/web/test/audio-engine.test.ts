@@ -37,12 +37,10 @@ describe("WebAudioEngine", () => {
       },
       async resolve() { return { buffer: fakeAudioBuffer(), rootMidi: 60 }; }
     };
-    const engine = createAudioEngine({ warmingProvider: undefined } as never);
-    void engine;
-    const warmedEngine = createAudioEngine({ sampleProvider: warmingProvider, audioContextFactory: () => context as unknown as AudioContext });
-    expect(await warmedEngine.unlockFromUserGesture()).toEqual({ ok: true });
+    const engine = createAudioEngine({ sampleProvider: warmingProvider, audioContextFactory: () => context as unknown as AudioContext });
+    expect(await engine.unlockFromUserGesture()).toEqual({ ok: true });
     expect(warmCalls).toBe(1);
-    expect(warmedEngine.getStatus().phase).toBe("READY");
+    expect(engine.getStatus().phase).toBe("READY");
   });
 
   it("does not let a late raw prepare completion downgrade READY to PREPARED", async () => {
