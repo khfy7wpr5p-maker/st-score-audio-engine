@@ -78,10 +78,50 @@ describe("ManifestSampleProvider", () => {
     expect(provider.getCacheStats()).toMatchObject({ rawEntries: 1, decodedEntries: 1, decodedHits: 1, decodedMisses: 1 });
   });
 
+  it("deduplicates concurrent fetch and decode for the same sample", async () => {
+    const { fetcher, urls } = fetchHarness();
+    const context = new FakeAudioContext();
+    const provider = new ManifestSampleProvider([manifest], { fetcher });
+    await Promise.all([
+      provider.resolve("GRAND_PIANO", { midi: 60 }, context as unknown as AudioContext),
+      provider.resolve("GRAND_PIANO", { midi: 60 }, context as unknown as AudioContext)
+    ]);
+    expect(urls).toHaveLength(1);
+    expect(context.decodeInputs).toHaveLength(1);
+    expect(provider.getCacheStats()).toMatchObject({ rawMisses: 1, decodedMisses: 1, decodedEntries: 1 });
+  });
+
   it("preloads only explicitly declared roots", async () => {
     const { fetcher, urls } = fetchHarness();
     const provider = new ManifestSampleProvider([manifest], { fetcher });
     await provider.prepare("GRAND_PIANO");
     expect(urls).toEqual(["https://example.invalid/samples/C4.wav"]);
+  });
+
+  it("warms only explicitly declared roots into decoded cache", async () => {
+    const { fetcher, urls } = fetchHarness();
+    const context = new FakeAudioContext();
+    const provider = new ManifestSampleProvider([manifest], { fetcher });
+    await provider.prepareDecoded("GRAND_PIANO", context as unknown as AudioContext);
+    expect(urls).toEqual(["https://example.invalid/samples/C4.wav"]);
+    expect(context.decodeInputs).toHaveLength(1);
+    expect(provider.getCacheStats()).toMatchObject({ rawEntries: 1, decodedEntries: 1, decodedMisses: 1 });
+
+    await provider.resolve("GRAND_PIANO", { midi: 60 }, context as unknown as AudioContext);
+    expect(urls).toHaveLength(1);
+    expect(context.decodeInputs).toHaveLength(1);
+    expect(provider.getCacheStats().decodedHits).toBe(1);
+  });
+
+  it("shares raw in-flight work between byte prefetch and decode warmup", async () => {
+    const { fetcher, urls } = fetchHarness();
+    const context = new FakeAudioContext();
+    const provider = new ManifestSampleProvider([manifest], { fetcher });
+    await Promise.all([
+      provider.prepare("GRAND_PIANO"),
+      provider.prepareDecoded("GRAND_PIANO", context as unknown as AudioContext)
+    ]);
+    expect(urls).toHaveLength(1);
+    expect(context.decodeInputs).toHaveLength(1);
   });
 });
