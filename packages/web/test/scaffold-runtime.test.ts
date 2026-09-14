@@ -7,13 +7,13 @@ describe("orchestral scaffold runtime", () => {
     const context = new FakeAudioContext();
     const engine = createAudioEngine({ audioContextFactory: () => context as unknown as AudioContext });
     await engine.unlockFromUserGesture();
-    await engine.setInstrument("VIOLIN");
+    await engine.setInstrument("VIOLA");
 
     const result = await engine.audition({
-      requestId: "violin-scaffold-1",
+      requestId: "viola-scaffold-1",
       sourceRevisionId: "rev-1",
       pitch: { midi: 69 },
-      instrumentId: "VIOLIN"
+      instrumentId: "VIOLA"
     });
 
     expect(result).toMatchObject({
@@ -22,7 +22,7 @@ describe("orchestral scaffold runtime", () => {
         code: "SAMPLE_UNAVAILABLE"
       }
     });
-    expect(engine.getStatus().instrumentId).toBe("VIOLIN");
+    expect(engine.getStatus().instrumentId).toBe("VIOLA");
     expect(engine.getInstrumentProfile().lifecycle).toBe("SCAFFOLD");
     expect(context.sources).toHaveLength(0);
   });
