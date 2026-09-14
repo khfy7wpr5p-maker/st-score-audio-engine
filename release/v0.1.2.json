@@ -1,0 +1,22 @@
+{
+  "release": "v0.1.2",
+  "target": "main",
+  "packages": {
+    "@st/score-audio-contracts": "0.1.0",
+    "@st/score-audio-web": "0.1.2"
+  },
+  "status": "APPROVED_FOR_GITHUB_RELEASE",
+  "scope": {
+    "grandPiano": "ACTIVE_QUALIFIED",
+    "violin": "ACTIVE_QUALIFIED",
+    "classicalGuitar": "SUSPENDED",
+    "remainingOrchestralInstruments": "SCAFFOLD_UNQUALIFIED"
+  },
+  "qualification": {
+    "violinAutomatedBrowser": "PASS",
+    "violinPhysicalPc": "PASS",
+    "violinPhysicalSafariIos": "PASS",
+    "violinPhysicalLatency": "PASS"
+  },
+  "notes": "Patch release promoting the physically qualified VSCO 2 CE Violin runtime. Contracts remain 0.1.0. Classical Guitar remains suspended pending its own qualification sequence."
+}

@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FakeAudioContext } from "../../testkit/src/index.js";
 import {
   ManifestSampleProvider,
   VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST,
   createAudioEngine,
+  getInstrumentProfile,
   validateSampleManifest
 } from "../src/index.js";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("VSCO 2 CE Solo Violin qualification profile", () => {
   it("has pinned CC0 provenance and bounded G3-C7 mapping", () => {
@@ -27,21 +30,34 @@ describe("VSCO 2 CE Solo Violin qualification profile", () => {
     }
   });
 
-  it("is not silently enabled in the default runtime before physical qualification", async () => {
+  it("is active and qualified after PC + Safari/iOS physical evidence passed", () => {
+    expect(getInstrumentProfile("VIOLIN")).toMatchObject({
+      lifecycle: "ACTIVE",
+      sampleReadiness: "QUALIFIED"
+    });
+  });
+
+  it("is available from the default runtime provider", async () => {
+    vi.stubGlobal("fetch", async () => ({
+      ok: true,
+      status: 200,
+      async arrayBuffer() { return new ArrayBuffer(8); }
+    }));
     const context = new FakeAudioContext();
     const engine = createAudioEngine({ audioContextFactory: () => context as unknown as AudioContext });
     await engine.unlockFromUserGesture();
     await engine.setInstrument("VIOLIN");
     const result = await engine.audition({
-      requestId: "violin-default-gate",
+      requestId: "violin-default-qualified",
       sourceRevisionId: "qualification-test",
       pitch: { midi: 69 },
       instrumentId: "VIOLIN"
     });
-    expect(result).toMatchObject({ ok: false, error: { code: "SAMPLE_UNAVAILABLE" } });
+    expect(result).toEqual({ ok: true, requestId: "violin-default-qualified" });
+    expect(context.decodeInputs.length).toBeGreaterThan(0);
   });
 
-  it("can be explicitly wired into a qualification-only provider", async () => {
+  it("can still be explicitly wired into a bounded custom provider", async () => {
     const provider = new ManifestSampleProvider([VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST], {
       fetcher: async () => ({ ok: true, status: 200, async arrayBuffer() { return new ArrayBuffer(8); } })
     });

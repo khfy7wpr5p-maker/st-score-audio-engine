@@ -12,6 +12,7 @@ import {
 } from "@st/score-audio-contracts";
 import { FREEPATS_CLASSICAL_GUITAR_MANIFEST } from "./instruments/freepats-classical-guitar.js";
 import { SALAMANDER_GRAND_PIANO_MANIFEST } from "./instruments/salamander-grand-piano.js";
+import { VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST } from "./instruments/vsco2ce-solo-violin.js";
 import { getInstrumentProfile, listInstrumentProfiles, type InstrumentProfileV1 } from "./instruments/catalog.js";
 import { ManifestSampleProvider, SampleProviderError } from "./manifest-sample-provider.js";
 import { type ResolvedSample, type SampleProvider, type SampleProviderCacheStats } from "./sample-provider.js";
@@ -54,7 +55,11 @@ export class WebAudioEngine {
   private lastRequestToScheduleMs: number | undefined;
 
   constructor(options: AudioEngineOptions = {}) {
-    this.sampleProvider = options.sampleProvider ?? new ManifestSampleProvider([SALAMANDER_GRAND_PIANO_MANIFEST, FREEPATS_CLASSICAL_GUITAR_MANIFEST]);
+    this.sampleProvider = options.sampleProvider ?? new ManifestSampleProvider([
+      SALAMANDER_GRAND_PIANO_MANIFEST,
+      FREEPATS_CLASSICAL_GUITAR_MANIFEST,
+      VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST
+    ]);
     this.audioContextFactory = options.audioContextFactory ?? (() => new AudioContext());
     this.voiceLimit = options.voiceLimit ?? 24;
     this.voices = new VoiceManager(this.voiceLimit);
