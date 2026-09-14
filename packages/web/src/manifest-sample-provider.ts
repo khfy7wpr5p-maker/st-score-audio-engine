@@ -57,6 +57,8 @@ export class ManifestSampleProvider implements SampleProvider {
   private readonly baseUrlOverrides: Partial<Record<InstrumentId, string>>;
   private readonly rawCache = new Map<string, ArrayBuffer>();
   private readonly decodedCache = new Map<string, AudioBuffer>();
+  private readonly rawInflight = new Map<string, Promise<ArrayBuffer>>();
+  private readonly decodedInflight = new Map<string, Promise<AudioBuffer>>();
   private rawHits = 0;
   private rawMisses = 0;
   private decodedHits = 0;
@@ -78,10 +80,16 @@ export class ManifestSampleProvider implements SampleProvider {
   async prepare(instrumentId: InstrumentId): Promise<void> {
     const manifest = this.manifests.get(instrumentId);
     if (!manifest) return;
-    const preload = manifest.preloadRootMidis ?? [];
-    await Promise.allSettled(preload.map(async (rootMidi) => {
-      const entry = manifest.samples.find((sample) => sample.rootMidi === rootMidi);
-      if (entry) await this.loadBytes(this.sampleUrl(manifest, entry));
+    await Promise.allSettled(this.preloadEntries(manifest).map(async (entry) => {
+      await this.loadBytes(this.sampleUrl(manifest, entry));
+    }));
+  }
+
+  async prepareDecoded(instrumentId: InstrumentId, context: AudioContext): Promise<void> {
+    const manifest = this.manifests.get(instrumentId);
+    if (!manifest) return;
+    await Promise.allSettled(this.preloadEntries(manifest).map(async (entry) => {
+      await this.loadDecoded(this.sampleUrl(manifest, entry), context);
     }));
   }
 
@@ -96,20 +104,7 @@ export class ManifestSampleProvider implements SampleProvider {
       throw new SampleProviderError("OUT_OF_RANGE", `no bounded sample mapping exists for pitch ${pitch.midi}`);
     }
     const url = this.sampleUrl(manifest, entry);
-    const decoded = lruGet(this.decodedCache, url);
-    if (decoded) {
-      this.decodedHits += 1;
-      return { buffer: decoded, rootMidi: entry.rootMidi, gain: entry.gain };
-    }
-    this.decodedMisses += 1;
-    const bytes = await this.loadBytes(url);
-    let buffer: AudioBuffer;
-    try {
-      buffer = await context.decodeAudioData(bytes.slice(0));
-    } catch (error) {
-      throw new SampleProviderError("SAMPLE_UNAVAILABLE", error instanceof Error ? error.message : "sample decode failed");
-    }
-    lruSet(this.decodedCache, url, buffer, this.decodedCacheLimit);
+    const buffer = await this.loadDecoded(url, context);
     return { buffer, rootMidi: entry.rootMidi, gain: entry.gain };
   }
 
@@ -127,6 +122,13 @@ export class ManifestSampleProvider implements SampleProvider {
   dispose(): void {
     this.rawCache.clear();
     this.decodedCache.clear();
+    this.rawInflight.clear();
+    this.decodedInflight.clear();
+  }
+
+  private preloadEntries(manifest: InstrumentSampleManifest): SampleManifestEntry[] {
+    const preload = new Set(manifest.preloadRootMidis ?? []);
+    return manifest.samples.filter((sample) => preload.has(sample.rootMidi));
   }
 
   private nearestEntry(manifest: InstrumentSampleManifest, midi: number): SampleManifestEntry | undefined {
@@ -142,22 +144,62 @@ export class ManifestSampleProvider implements SampleProvider {
     return `${base.replace(/\/$/, "")}/${entry.path.replace(/^\//, "")}`;
   }
 
+  private async loadDecoded(url: string, context: AudioContext): Promise<AudioBuffer> {
+    const cached = lruGet(this.decodedCache, url);
+    if (cached) {
+      this.decodedHits += 1;
+      return cached;
+    }
+    const existing = this.decodedInflight.get(url);
+    if (existing) return existing;
+
+    this.decodedMisses += 1;
+    const pending = (async () => {
+      const bytes = await this.loadBytes(url);
+      let buffer: AudioBuffer;
+      try {
+        buffer = await context.decodeAudioData(bytes.slice(0));
+      } catch (error) {
+        throw new SampleProviderError("SAMPLE_UNAVAILABLE", error instanceof Error ? error.message : "sample decode failed");
+      }
+      lruSet(this.decodedCache, url, buffer, this.decodedCacheLimit);
+      return buffer;
+    })();
+    this.decodedInflight.set(url, pending);
+    try {
+      return await pending;
+    } finally {
+      if (this.decodedInflight.get(url) === pending) this.decodedInflight.delete(url);
+    }
+  }
+
   private async loadBytes(url: string): Promise<ArrayBuffer> {
     const cached = lruGet(this.rawCache, url);
     if (cached) {
       this.rawHits += 1;
       return cached;
     }
+    const existing = this.rawInflight.get(url);
+    if (existing) return existing;
+
     this.rawMisses += 1;
-    let response: BinaryFetchResponse;
+    const pending = (async () => {
+      let response: BinaryFetchResponse;
+      try {
+        response = await this.fetcher(url);
+      } catch (error) {
+        throw new SampleProviderError("SAMPLE_UNAVAILABLE", error instanceof Error ? error.message : "sample fetch failed");
+      }
+      if (!response.ok) throw new SampleProviderError("SAMPLE_UNAVAILABLE", `sample fetch failed with HTTP ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      lruSet(this.rawCache, url, bytes, this.rawCacheLimit);
+      return bytes;
+    })();
+    this.rawInflight.set(url, pending);
     try {
-      response = await this.fetcher(url);
-    } catch (error) {
-      throw new SampleProviderError("SAMPLE_UNAVAILABLE", error instanceof Error ? error.message : "sample fetch failed");
+      return await pending;
+    } finally {
+      if (this.rawInflight.get(url) === pending) this.rawInflight.delete(url);
     }
-    if (!response.ok) throw new SampleProviderError("SAMPLE_UNAVAILABLE", `sample fetch failed with HTTP ${response.status}`);
-    const bytes = await response.arrayBuffer();
-    lruSet(this.rawCache, url, bytes, this.rawCacheLimit);
-    return bytes;
   }
 }

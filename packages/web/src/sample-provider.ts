@@ -17,6 +17,7 @@ export interface SampleProviderCacheStats {
 
 export interface SampleProvider {
   prepare?(instrumentId: InstrumentId): Promise<void>;
+  prepareDecoded?(instrumentId: InstrumentId, context: AudioContext): Promise<void>;
   resolve(instrumentId: InstrumentId, pitch: CanonicalPitch, context: AudioContext): Promise<ResolvedSample | null>;
   getCacheStats?(): SampleProviderCacheStats;
   dispose?(): Promise<void> | void;

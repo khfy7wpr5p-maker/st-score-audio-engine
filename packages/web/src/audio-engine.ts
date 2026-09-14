@@ -65,7 +65,8 @@ export class WebAudioEngine {
   async prepare(): Promise<void> {
     this.assertNotDisposed();
     await this.sampleProvider.prepare?.(this.instrumentId);
-    this.phase = "PREPARED";
+    if (this.phase === "NEW") this.phase = "PREPARED";
+    this.warmDecodedSamples();
   }
 
   async unlockFromUserGesture(): Promise<UnlockResult> {
@@ -78,6 +79,7 @@ export class WebAudioEngine {
         return { ok: false, error: { code: "AUDIO_UNLOCK_REQUIRED", message: "AudioContext is not running" } };
       }
       this.phase = "READY";
+      this.warmDecodedSamples();
       return { ok: true };
     } catch (error) {
       this.phase = "SUSPENDED";
@@ -88,9 +90,13 @@ export class WebAudioEngine {
   async setInstrument(instrumentId: InstrumentId): Promise<void> {
     this.assertNotDisposed();
     getInstrumentProfile(instrumentId);
-    if (this.instrumentId === instrumentId) return;
+    if (this.instrumentId === instrumentId) {
+      this.warmDecodedSamples();
+      return;
+    }
     this.instrumentId = instrumentId;
     await this.sampleProvider.prepare?.(instrumentId);
+    this.warmDecodedSamples();
   }
 
   getInstrumentProfile(instrumentId: InstrumentId = this.instrumentId): Readonly<InstrumentProfileV1> {
@@ -211,6 +217,12 @@ export class WebAudioEngine {
     await this.sampleProvider.dispose?.();
     if (this.context && this.context.state !== "closed") await this.context.close();
     this.phase = "DISPOSED";
+  }
+
+  private warmDecodedSamples(): void {
+    const context = this.context;
+    if (!context || context.state !== "running") return;
+    void this.sampleProvider.prepareDecoded?.(this.instrumentId, context).catch(() => undefined);
   }
 
   private assertNotDisposed(): void {
