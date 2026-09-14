@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>ST Score Audio — Violin Qualification</title>
+  <title>ST Score Audio — P08 Violin Qualification</title>
   <style>
     :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color-scheme: light dark; }
     body { margin: 0; padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
@@ -13,14 +13,15 @@
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     button { min-height: 52px; border-radius: 10px; border: 1px solid currentColor; font-size: 1rem; padding: 10px; }
     .full { grid-column: 1 / -1; }
-    .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; max-height: 280px; overflow: auto; }
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; max-height: 320px; overflow: auto; }
     small { opacity: .75; }
   </style>
 </head>
 <body>
 <main>
-  <h1>ST Score Audio — Violin Qualification Spike</h1>
-  <p><small>VSCO 2 Community Edition Solo Violin / Arco Vibrato (CC0) kullanılır. Bu sayfa yalnız qualification içindir; VIOLIN henüz ürün runtime'ında ACTIVE değildir.</small></p>
+  <h1>ST Score Audio — P08 Violin Qualification</h1>
+  <p><small>VSCO 2 Community Edition Solo Violin / Arco Vibrato (CC0). Bu harness yalnız qualification içindir. VIOLIN production runtime'ında hâlâ SCAFFOLD / UNQUALIFIED kalır.</small></p>
+  <div id="gate" class="status">AUTOMATED_GATES=PASS\nPHYSICAL_PC=PENDING\nPHYSICAL_SAFARI_IOS=PENDING\nPHYSICAL_LATENCY=PENDING</div>
   <div id="status" class="status">QUALIFICATION_READY_FOR_USER_GESTURE</div>
   <div class="grid">
     <button id="unlock" class="full">1. Audio Unlock / Resume</button>
@@ -30,6 +31,8 @@
     <button id="a4">Violin A4</button>
     <button id="e5">Violin E5</button>
     <button id="c6">Violin C6</button>
+    <button id="c7">Violin C7</button>
+    <button id="rapid" class="full">Rapid 8× A4 Latency Test</button>
     <button id="stop" class="full">Stop All</button>
   </div>
   <div id="log" class="status log"></div>
@@ -53,7 +56,7 @@
 
   const log = (message) => {
     const line = `${new Date().toISOString()}  ${message}`;
-    logNode.textContent = `${line}\n${logNode.textContent}`.slice(0, 12000);
+    logNode.textContent = `${line}\n${logNode.textContent}`.slice(0, 16000);
   };
 
   const show = (label) => {
@@ -68,20 +71,24 @@
     if (engine.getStatus().audioContextState !== 'running') throw new Error('AUDIO_UNLOCK_REQUIRED');
   }
 
-  async function audition(midi, instrumentId, durationMs = 1200) {
+  async function audition(midi, instrumentId, durationMs = 900) {
     await ensureUnlocked();
     await engine.setInstrument(instrumentId);
+    const started = performance.now();
     const result = await engine.audition({
-      requestId: `violin-qualification-${++seq}`,
+      requestId: `p08-violin-${++seq}`,
       sourceRevisionId: 'physical-violin-qualification-v1',
       pitch: { midi },
       instrumentId,
       durationMs,
       velocity: 0.85
     });
+    const elapsed = performance.now() - started;
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
-    log(`AUDITION_OK ${instrumentId} midi=${midi} request=${result.requestId}`);
+    const diagnostics = engine.getDiagnostics();
+    log(`AUDITION_OK ${instrumentId} midi=${midi} totalMs=${elapsed.toFixed(1)} scheduleMs=${diagnostics.lastRequestToScheduleMs?.toFixed(1) ?? 'n/a'} request=${result.requestId}`);
     show(`AUDITION_OK ${instrumentId} midi=${midi} — fiziksel sesi doğrula`);
+    return elapsed;
   }
 
   async function run(label, fn) {
@@ -98,12 +105,21 @@
     show('UNLOCK_OK');
     log('UNLOCK_OK');
   }));
-  document.querySelector('#piano').addEventListener('click', () => run('PIANO_C4', () => audition(60, 'GRAND_PIANO', 700)));
+  document.querySelector('#piano').addEventListener('click', () => run('PIANO_C4', () => audition(60, 'GRAND_PIANO', 650)));
   document.querySelector('#g3').addEventListener('click', () => run('VIOLIN_G3', () => audition(55, 'VIOLIN')));
   document.querySelector('#c4').addEventListener('click', () => run('VIOLIN_C4', () => audition(60, 'VIOLIN')));
   document.querySelector('#a4').addEventListener('click', () => run('VIOLIN_A4', () => audition(69, 'VIOLIN')));
   document.querySelector('#e5').addEventListener('click', () => run('VIOLIN_E5', () => audition(76, 'VIOLIN')));
   document.querySelector('#c6').addEventListener('click', () => run('VIOLIN_C6', () => audition(84, 'VIOLIN')));
+  document.querySelector('#c7').addEventListener('click', () => run('VIOLIN_C7', () => audition(96, 'VIOLIN')));
+  document.querySelector('#rapid').addEventListener('click', () => run('RAPID_A4', async () => {
+    const values = [];
+    for (let i = 0; i < 8; i += 1) values.push(await audition(69, 'VIOLIN', 220));
+    const max = Math.max(...values);
+    const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+    log(`RAPID_A4_OK count=8 avgMs=${avg.toFixed(1)} maxMs=${max.toFixed(1)}`);
+    show(`RAPID_A4_OK avgMs=${avg.toFixed(1)} maxMs=${max.toFixed(1)} — takılma/çift ses var mı kontrol et`);
+  }));
   document.querySelector('#stop').addEventListener('click', () => {
     engine.stopAll();
     show('STOP_ALL_OK');
