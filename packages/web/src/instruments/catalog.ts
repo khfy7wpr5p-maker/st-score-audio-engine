@@ -40,10 +40,10 @@ const profile = (
 });
 
 export const INSTRUMENT_CATALOG: readonly Readonly<InstrumentProfileV1>[] = Object.freeze([
-  profile("GRAND_PIANO", "Grand Piano", "KEYBOARD", "ACTIVE", "QUALIFIED", true, 0.12, ["natural", "sustain"], ["Current production audition target."]),
-  profile("CLASSICAL_GUITAR", "Classical Guitar", "PLUCKED_STRING", "SUSPENDED", "SUSPENDED", true, 0.18, ["natural"], ["Runtime profile retained, product integration work intentionally paused."]),
+  profile("GRAND_PIANO", "Grand Piano", "KEYBOARD", "ACTIVE", "QUALIFIED", true, 0.12, ["natural", "sustain"], ["Production audition target."]),
+  profile("CLASSICAL_GUITAR", "Classical Guitar", "PLUCKED_STRING", "SUSPENDED", "SUSPENDED", true, 0.18, ["natural"], ["Runtime profile retained; production activation is intentionally deferred until its own physical qualification pass."]),
 
-  profile("VIOLIN", "Violin", "BOWED_STRING", "SCAFFOLD", "UNQUALIFIED", false, 0.20, ["sustain", "staccato", "legato", "pizzicato", "tremolo"], ["VSCO 2 CE Arco Vibrato CC0 qualification candidate exists, but default runtime remains disabled until physical iPhone evidence passes."]),
+  profile("VIOLIN", "Violin", "BOWED_STRING", "ACTIVE", "QUALIFIED", false, 0.20, ["sustain", "staccato", "legato", "pizzicato", "tremolo"], ["VSCO 2 CE Arco Vibrato CC0 candidate passed automated WebKit plus physical PC, Safari/iOS, and latency qualification on 2026-09-14."]),
   profile("VIOLA", "Viola", "BOWED_STRING", "SCAFFOLD", "UNQUALIFIED", false, 0.22, ["sustain", "staccato", "legato", "pizzicato", "tremolo"]),
   profile("CELLO", "Cello", "BOWED_STRING", "SCAFFOLD", "UNQUALIFIED", false, 0.24, ["sustain", "staccato", "legato", "pizzicato", "tremolo"]),
   profile("DOUBLE_BASS", "Double Bass", "BOWED_STRING", "SCAFFOLD", "UNQUALIFIED", false, 0.26, ["sustain", "staccato", "legato", "pizzicato"]),
