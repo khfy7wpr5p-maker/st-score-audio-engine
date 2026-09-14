@@ -26,6 +26,61 @@ describe("WebAudioEngine", () => {
     expect(context.sources[0]?.started).toBe(true);
   });
 
+  it("starts decoded preload warming after gesture unlock without blocking unlock", async () => {
+    const context = new FakeAudioContext();
+    let warmCalls = 0;
+    const warmingProvider: SampleProvider = {
+      async prepareDecoded(instrumentId, receivedContext) {
+        warmCalls += 1;
+        expect(instrumentId).toBe("GRAND_PIANO");
+        expect(receivedContext).toBe(context as unknown as AudioContext);
+      },
+      async resolve() { return { buffer: fakeAudioBuffer(), rootMidi: 60 }; }
+    };
+    const engine = createAudioEngine({ warmingProvider: undefined } as never);
+    void engine;
+    const warmedEngine = createAudioEngine({ sampleProvider: warmingProvider, audioContextFactory: () => context as unknown as AudioContext });
+    expect(await warmedEngine.unlockFromUserGesture()).toEqual({ ok: true });
+    expect(warmCalls).toBe(1);
+    expect(warmedEngine.getStatus().phase).toBe("READY");
+  });
+
+  it("does not let a late raw prepare completion downgrade READY to PREPARED", async () => {
+    const context = new FakeAudioContext();
+    let releasePrepare!: () => void;
+    let prepareStarted!: () => void;
+    const started = new Promise<void>((resolve) => { prepareStarted = resolve; });
+    const gate = new Promise<void>((resolve) => { releasePrepare = resolve; });
+    const delayedProvider: SampleProvider = {
+      async prepare() {
+        prepareStarted();
+        await gate;
+      },
+      async resolve() { return { buffer: fakeAudioBuffer(), rootMidi: 60 }; }
+    };
+    const engine = createAudioEngine({ sampleProvider: delayedProvider, audioContextFactory: () => context as unknown as AudioContext });
+    const preparing = engine.prepare();
+    await started;
+    expect(await engine.unlockFromUserGesture()).toEqual({ ok: true });
+    expect(engine.getStatus().phase).toBe("READY");
+    releasePrepare();
+    await preparing;
+    expect(engine.getStatus().phase).toBe("READY");
+  });
+
+  it("treats decoded warmup failure as best-effort and keeps the engine ready", async () => {
+    const context = new FakeAudioContext();
+    const warmingProvider: SampleProvider = {
+      async prepareDecoded() { throw new Error("warmup failed"); },
+      async resolve() { return { buffer: fakeAudioBuffer(), rootMidi: 60 }; }
+    };
+    const engine = createAudioEngine({ sampleProvider: warmingProvider, audioContextFactory: () => context as unknown as AudioContext });
+    expect(await engine.unlockFromUserGesture()).toEqual({ ok: true });
+    await Promise.resolve();
+    expect(engine.getStatus().phase).toBe("READY");
+    expect(await engine.audition(request())).toEqual({ ok: true, requestId: "r1" });
+  });
+
   it("bounds active voices", async () => {
     const context = new FakeAudioContext();
     const engine = createAudioEngine({ sampleProvider, voiceLimit: 2, audioContextFactory: () => context as unknown as AudioContext });
