@@ -1,19 +1,22 @@
 # ST Score Audio Engine — Orchestral Instrument Architecture
 
-Status: foundation/scaffold. This document does not authorize Score Editor changes, production deployment, or unqualified sample assets.
+Status: reusable orchestral foundation with one qualified bowed-string instrument. This document does not authorize Score Editor changes, SesliTab cutover, or use of unqualified sample assets.
 
 ## Product state
 
-- `GRAND_PIANO`: ACTIVE / qualified runtime profile.
-- `CLASSICAL_GUITAR`: SUSPENDED. Existing runtime code and provenance remain intact, but no new product-integration work should depend on it until explicitly resumed.
-- Bowed strings, woodwinds, and brass listed below: SCAFFOLD / UNQUALIFIED. They have stable ids and registry metadata only; no production sample pack is implied.
+- `GRAND_PIANO`: ACTIVE / QUALIFIED baseline.
+- `VIOLIN`: ACTIVE / QUALIFIED since 2026-09-14. The VSCO 2 CE Solo Violin / Arco Vibrato CC0 manifest is included in the default browser runtime provider.
+- `CLASSICAL_GUITAR`: SUSPENDED. Existing runtime code/provenance remains intact, but activation requires its own future qualification decision.
+- `VIOLA`, `CELLO`, `DOUBLE_BASS`: SCAFFOLD / UNQUALIFIED.
+- `FLUTE`, `OBOE`, `CLARINET_BB`, `BASSOON`: SCAFFOLD / UNQUALIFIED.
+- `TRUMPET_BB`, `FRENCH_HORN_F`, `TROMBONE`, `TUBA`: SCAFFOLD / UNQUALIFIED.
 
 ## Architecture map
 
 ```text
-ST application / future host UI
+ST application / host UI
         |
-        | canonical current-revision note + selected instrument id
+        | current canonical sounding pitch + selected instrument id
         v
 AuditionRequest (contracts)
         |
@@ -30,19 +33,19 @@ Instrument Registry
         +-------------------------+
         |                         |
         v                         v
-SampleProvider                Future articulation router
-  - manifest lookup              - natural/sustain
-  - bounded mapping              - staccato/legato
-  - raw/decoded LRU cache         - pizzicato/tremolo/mute
-  - provenance                    - no screen-geometry authority
+SampleProvider                future articulation router
+  - manifest lookup              - explicit capability only
+  - bounded pitch mapping        - no geometry inference
+  - raw/decoded LRU cache        - fail closed when unavailable
+  - source/license checksum
         |
         v
 WebAudioEngine
-  - unlock/resume
+  - user-gesture unlock/resume
   - bounded voices
   - velocity gain
-  - release envelope from registry
-  - explicit SAMPLE_UNAVAILABLE for unqualified instruments
+  - registry release envelope
+  - explicit SAMPLE_UNAVAILABLE
         |
         v
 AudioContext -> physical output
@@ -50,92 +53,90 @@ AudioContext -> physical output
 
 ## Instrument families prepared
 
-### Keyboard
+Keyboard:
 - `GRAND_PIANO`
 
-### Plucked string
+Plucked string:
 - `CLASSICAL_GUITAR` — suspended
 
-### Bowed string
-- `VIOLIN`
+Bowed string:
+- `VIOLIN` — active/qualified
 - `VIOLA`
 - `CELLO`
 - `DOUBLE_BASS`
 
-### Woodwind
+Woodwind:
 - `FLUTE`
 - `OBOE`
 - `CLARINET_BB`
 - `BASSOON`
 
-### Brass
+Brass:
 - `TRUMPET_BB`
 - `FRENCH_HORN_F`
 - `TROMBONE`
 - `TUBA`
 
-This is intentionally a core orchestral set, not an exhaustive General MIDI catalog. Additional instruments should be added through the same registry rather than through host-specific branching.
+This is intentionally a core orchestral set rather than an exhaustive General MIDI catalog. Additional instruments should enter through the same registry and qualification process instead of host-specific branching.
 
 ## Canonical pitch rule
 
-The Audio Engine consumes canonical sounding pitch. It must not infer sounding pitch from staff position, clef, visual geometry, DOM/SVG ids, instrument name, or written transposition.
+The Audio Engine consumes canonical sounding pitch. It must not infer sounding pitch from staff position, clef, visual geometry, DOM/SVG ids, instrument name, or written notation.
 
-For transposing instruments such as B-flat clarinet, B-flat trumpet, and horn in F, written-to-sounding conversion remains outside the audio engine. The host/canonical score layer must supply the pitch to be heard.
+For transposing instruments such as B-flat clarinet, B-flat trumpet, and horn in F, written-to-sounding conversion remains outside this repository. The host/canonical score layer supplies the pitch to be heard.
 
-## Sample qualification gate
+## Qualification gate
 
-A SCAFFOLD instrument is not playable merely because its id exists. Promotion to ACTIVE requires all of the following:
+A SCAFFOLD instrument is not playable merely because its id exists.
 
+Promotion to ACTIVE requires:
 1. sample source and exact revision pinned;
-2. commercial/redistribution compatibility reviewed;
+2. license/redistribution compatibility reviewed;
 3. machine-readable provenance and checksum recorded;
 4. bounded pitch mapping defined;
-5. memory/cache budget documented;
-6. WebKit automated tests green;
-7. physical iPhone Safari audition evidence recorded;
-8. no regression to Piano;
-9. only then may a host expose the instrument as product-ready.
+5. manifest validation and pitch coverage pass;
+6. automated browser/WebKit tests pass;
+7. physical PC evidence pass;
+8. physical Safari/iOS evidence pass;
+9. physical latency evidence pass;
+10. production baseline regressions remain green;
+11. explicit lifecycle/readiness promotion.
 
-Until those gates pass, the runtime must return an explicit `SAMPLE_UNAVAILABLE` rather than synthesize or silently substitute another instrument.
+Violin completed this sequence and was promoted in v0.1.2. The remaining orchestral instruments have not.
+
+Until qualification completes, audition must return `SAMPLE_UNAVAILABLE` rather than synthesize or silently substitute another instrument.
 
 ## Articulation architecture
 
-The first orchestral foundation keeps note audition simple, but the registry records an articulation roadmap. Later versions should extend requests with an explicit articulation field rather than infer articulation from notation geometry.
+Current production behavior is note audition, not a full articulation engine. The registry records an articulation roadmap so a future contract version can add explicit articulation requests.
 
-Suggested family capabilities:
-
+Planned family capabilities:
 - bowed strings: sustain, staccato, legato, pizzicato, tremolo;
 - woodwinds: sustain, staccato, legato;
-- brass: sustain, staccato, legato, optional mute where appropriate;
+- brass: sustain, staccato, legato, optional mute;
 - piano: natural and sustain behavior;
-- guitar: natural pluck only while suspended.
+- guitar: natural pluck while suspended.
 
-Articulation support must be capability-driven and fail explicitly when a requested articulation is unavailable.
+Articulation must be explicit and capability-driven. It must never be inferred from screen geometry.
 
-## Runtime lifecycle
+## Runtime lifecycle semantics
 
-`ACTIVE` means eligible for product-host exposure after sample qualification.
+`ACTIVE`: eligible for host exposure when its qualified manifest is available.
 
-`SUSPENDED` means code/data may remain for regression/history, but new host integration must not assume availability.
+`SUSPENDED`: code/data may remain for regression/history, but host product integration must not assume availability.
 
-`SCAFFOLD` means stable architectural identity exists but production samples are intentionally absent.
+`SCAFFOLD`: stable architectural identity exists, but production readiness is intentionally absent.
 
-Hosts should query the registry and normally expose only ACTIVE entries. This allows Score Editor and other ST applications to share one audio engine without each application maintaining its own instrument list.
+Hosts should normally expose only ACTIVE / QUALIFIED entries.
 
 ## Repository boundary
 
-This foundation belongs entirely to `st-score-audio-engine`.
+This architecture belongs to `st-score-audio-engine`.
 
-No `st-score-editor-core` file change is required or authorized by this stage. Future Score Editor work should consume the registry through the Audio Engine browser SDK only after the relevant instrument reaches ACTIVE/QUALIFIED status.
+No `st-score-editor-core` mutation is implied by an Audio Engine qualification or release. Host integration must remain a separate, reviewed change using only the public Audio Engine SDK/contracts.
 
-## Next recommended implementation order
+## Next qualification direction
 
-1. Violin qualification spike.
-2. Cello qualification spike.
-3. Flute qualification spike.
-4. Clarinet B-flat transposition/canonical-pitch validation.
-5. Trumpet B-flat and Horn F validation.
-6. Remaining viola, double bass, oboe, bassoon, trombone, tuba.
-7. Only after one family is proven: articulation request contract vNext.
+Violin is complete. The remaining path is evidence-driven qualification of additional scaffold instruments, beginning with the bowed-string family before broad orchestral expansion unless a product requirement changes the order.
 
-This order keeps the work evidence-driven and avoids committing a large, unverified orchestral sample pack.
+Each new activation must reuse the same provenance, bounded-mapping, browser, physical-device, and regression gates.
