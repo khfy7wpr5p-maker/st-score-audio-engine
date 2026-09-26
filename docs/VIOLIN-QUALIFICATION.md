@@ -1,8 +1,10 @@
-# Violin Qualification Spike
+# Violin Qualification
 
-Status: candidate only. `VIOLIN` remains `SCAFFOLD / UNQUALIFIED` in the shared instrument registry until physical-device evidence is recorded.
+Status: **COMPLETED / ACTIVE / QUALIFIED**.
 
-## Candidate source
+`VIOLIN` completed the P08 qualification sequence and was promoted into the default browser runtime in ST Score Audio Engine v0.1.2 on 2026-09-14.
+
+## Qualified source
 
 - Library: VSCO 2 Community Edition
 - Instrument: Solo Violin / Arco Vibrato
@@ -12,33 +14,49 @@ Status: candidate only. `VIOLIN` remains `SCAFFOLD / UNQUALIFIED` in the shared 
 - Author/publisher: Versilian Studios LLC
 - License: CC0 1.0
 - Runtime sample binaries: external fetch only; not committed to this repository
+- Manifest id: `vsco2ce-solo-violin-arco-vib-p-v1`
 
-The qualification manifest uses the `p` layer as the first bounded sustain candidate. Root samples cover G3 through C7 with no requested pitch requiring more than two semitones of nearest-root transposition.
+The qualified manifest uses the `p` layer. Root samples cover G3 through C7 and bounded mapping permits no requested pitch to exceed two semitones of nearest-root transposition.
 
-## Safety boundary
+## Qualification result
 
-The candidate manifest is exported for explicit qualification harnesses, but it is intentionally **not** included in `createAudioEngine()`'s default `ManifestSampleProvider`. Ordinary hosts therefore continue to receive explicit `SAMPLE_UNAVAILABLE` for `VIOLIN`.
+All required gates are PASS:
 
-This prevents a scaffold instrument from becoming product-visible merely because candidate assets exist.
+1. SOURCE_CANDIDATE — PASS
+2. LICENSE_PROVENANCE — PASS
+3. MANIFEST_VALID — PASS
+4. PITCH_COVERAGE — PASS
+5. AUTOMATED_BROWSER — PASS
+6. PHYSICAL_PC — PASS
+7. PHYSICAL_SAFARI_IOS — PASS
+8. PHYSICAL_LATENCY — PASS
 
-## Qualification gates
+The shared instrument registry therefore records `VIOLIN` as `ACTIVE / QUALIFIED`.
 
-Automated gates:
+## Runtime status
 
-1. manifest schema/provenance validation;
-2. bounded nearest-root mapping across MIDI 55-96;
-3. Piano regression remains green;
-4. default runtime still fails closed for VIOLIN;
-5. browser bundle builds;
-6. WebKit regression remains green.
+Unlike the earlier qualification-only stage, the Violin manifest is now part of `createAudioEngine()`'s default `ManifestSampleProvider`.
 
-Physical-device gates:
+Ordinary hosts can select `VIOLIN` and audition canonical sounding pitches within the qualified manifest range, subject to normal AudioContext unlock and runtime sample availability.
 
-1. iPhone Safari user-gesture unlock succeeds;
-2. G3, C4, A4, E5 and C6 produce audible violin output;
-3. pitch direction and octave are musically correct by ear;
-4. no clipping/clicking or unexpectedly silent samples;
-5. Piano C4 still works in the same harness after violin audition;
-6. result is recorded separately from automated WebKit evidence.
+The previous fail-closed scaffold behavior now applies to the remaining unqualified instruments, such as Viola, Cello, Double Bass, Woodwinds, and Brass.
 
-Only after all gates pass may a follow-up PR promote VIOLIN to `ACTIVE / QUALIFIED` and add its manifest to the default runtime provider. Score Editor integration is explicitly outside this spike.
+## Preserved safety boundary
+
+Violin activation does not change architectural authority:
+
+- the host remains responsible for canonical sounding pitch;
+- the renderer does not become audio authority;
+- Audio Engine does not mutate score state;
+- qualification does not authorize Score Editor or SesliTab production cutover;
+- articulation support beyond the current audition profile requires an explicit future contract/capability change.
+
+## Regression expectations
+
+Violin qualification must continue to preserve:
+- Grand Piano production audition;
+- bounded caches and voices;
+- iOS user-gesture unlock;
+- fail-closed behavior for unqualified instruments;
+- suspended Classical Guitar lifecycle;
+- contract v0.1.0 semantics.
