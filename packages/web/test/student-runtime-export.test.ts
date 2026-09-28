@@ -122,7 +122,7 @@ describe("Student audio runtime export", () => {
         "samples",
         "st-score-audio-engine.js"
       ]));
-      expect(await readdir(join(rootDir, "dist", "student-runtime", "samples"))).toEqual(SAMPLE_FILES);
+      expect((await readdir(join(rootDir, "dist", "student-runtime", "samples"))).sort()).toEqual([...SAMPLE_FILES].sort());
     } finally {
       await rm(rootDir, { recursive: true, force: true });
     }
