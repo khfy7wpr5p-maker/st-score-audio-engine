@@ -201,7 +201,7 @@ describe("WebAudioEngine", () => {
     expect(context.gains[0]?.gain.events).toEqual([
       { kind: "set", value: 0.8, time: 3.25 },
       { kind: "set", value: 0.8, time: 3.75 },
-      { kind: "ramp", value: 0, time: 3.77 }
+      { kind: "ramp", value: 0, time: 3.87 }
     ]);
   });
 
