@@ -26,6 +26,15 @@ const SAMPLE_FILES = [
 ];
 
 describe("Student audio runtime export", () => {
+  it("builds workspace packages before the standalone browser export command", async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL("../../../package.json", import.meta.url), "utf8")
+    );
+    expect(packageJson.scripts?.["export:student-runtime"]).toBe(
+      "npm run build && npm run build:browser && node scripts/export-student-runtime.mjs"
+    );
+  });
+
   it("publishes browser runtime identity 0.2.0 with scheduled-note capability", () => {
     expect(SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION).toBe("0.2.0");
     const runtime = (globalThis as typeof globalThis & Record<string, any>)[SCORE_AUDIO_ENGINE_GLOBAL];
