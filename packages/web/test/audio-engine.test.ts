@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FakeAudioContext, fakeAudioBuffer } from "../../testkit/src/index.js";
-import { createAudioEngine, type SampleProvider } from "../src/index.js";
+import { SampleProviderError, createAudioEngine, type SampleProvider } from "../src/index.js";
 
 const sampleProvider: SampleProvider = {
   async resolve() { return { buffer: fakeAudioBuffer(), rootMidi: 60 }; }
@@ -130,7 +130,114 @@ describe("WebAudioEngine", () => {
     const engine = createAudioEngine({ sampleProvider });
     expect(engine.supports("note-audition")).toBe(true);
     expect(engine.supports("sample-instrument")).toBe(true);
+    expect(engine.supports("pitch-preparation")).toBe(true);
+    expect(engine.supports("scheduled-note")).toBe(true);
     expect(engine.getCapabilities()).toContain("ios-user-gesture-unlock");
+  });
+
+  it("prepares a unique bounded pitch set without creating voices", async () => {
+    const context = new FakeAudioContext();
+    const resolved: number[] = [];
+    const provider: SampleProvider = {
+      async resolve(_instrumentId, pitch) {
+        resolved.push(pitch.midi);
+        return { buffer: fakeAudioBuffer(), rootMidi: pitch.midi };
+      }
+    };
+    const engine = createAudioEngine({ sampleProvider: provider, audioContextFactory: () => context as unknown as AudioContext });
+    await engine.unlockFromUserGesture();
+
+    expect(await engine.preparePitches({
+      instrumentId: "GRAND_PIANO",
+      pitches: [{ midi: 60 }, { midi: 60 }, { midi: 62 }]
+    })).toEqual({ ok: true });
+    expect(resolved).toEqual([60, 62]);
+    expect(context.sources).toHaveLength(0);
+    expect(engine.getStatus().activeVoices).toBe(0);
+  });
+
+  it("fails pitch preparation closed for oversized and out-of-range requests", async () => {
+    const context = new FakeAudioContext();
+    let calls = 0;
+    const provider: SampleProvider = {
+      async resolve(_instrumentId, pitch) {
+        calls += 1;
+        if (pitch.midi === 97) {
+          throw new SampleProviderError("OUT_OF_RANGE", "outside qualified range");
+        }
+        return { buffer: fakeAudioBuffer(), rootMidi: pitch.midi };
+      }
+    };
+    const engine = createAudioEngine({ sampleProvider: provider, audioContextFactory: () => context as unknown as AudioContext });
+    await engine.unlockFromUserGesture();
+
+    expect(await engine.preparePitches({
+      instrumentId: "GRAND_PIANO",
+      pitches: Array.from({ length: 129 }, () => ({ midi: 60 }))
+    })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    expect(calls).toBe(0);
+
+    expect(await engine.preparePitches({
+      instrumentId: "GRAND_PIANO",
+      pitches: [{ midi: 97 }]
+    })).toMatchObject({ ok: false, error: { code: "OUT_OF_RANGE" } });
+    expect(calls).toBe(1);
+    expect(context.sources).toHaveLength(0);
+  });
+
+  it("schedules a prepared note at the exact absolute AudioContext time", async () => {
+    const context = new FakeAudioContext();
+    const engine = createAudioEngine({ sampleProvider, audioContextFactory: () => context as unknown as AudioContext });
+    await engine.unlockFromUserGesture();
+
+    expect(await engine.scheduleNote({
+      ...request("scheduled"),
+      startTimeSeconds: 3.25,
+      durationMs: 500
+    })).toEqual({ ok: true, requestId: "scheduled" });
+
+    expect(context.sources).toHaveLength(1);
+    expect(context.sources[0]?.startCalls).toEqual([3.25]);
+    expect(context.gains[0]?.gain.events).toEqual([
+      { kind: "set", value: 0.8, time: 3.25 },
+      { kind: "set", value: 0.8, time: 3.75 },
+      { kind: "ramp", value: 0, time: 3.77 }
+    ]);
+  });
+
+  it("rejects a scheduled note that became late while its sample resolved", async () => {
+    const context = new FakeAudioContext();
+    const delayedProvider: SampleProvider = {
+      async resolve() {
+        context.currentTime = 4;
+        return { buffer: fakeAudioBuffer(), rootMidi: 60 };
+      }
+    };
+    const engine = createAudioEngine({ sampleProvider: delayedProvider, audioContextFactory: () => context as unknown as AudioContext });
+    await engine.unlockFromUserGesture();
+
+    expect(await engine.scheduleNote({
+      ...request("late"),
+      startTimeSeconds: 3.5
+    })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    expect(context.sources).toHaveLength(0);
+  });
+
+  it("noteOff and stopAll cancel future scheduled voices", async () => {
+    const context = new FakeAudioContext();
+    const engine = createAudioEngine({ sampleProvider, audioContextFactory: () => context as unknown as AudioContext });
+    await engine.unlockFromUserGesture();
+
+    await engine.scheduleNote({ ...request("future-a"), startTimeSeconds: 5 });
+    await engine.scheduleNote({ ...request("future-b"), startTimeSeconds: 6 });
+    expect(engine.getStatus().activeVoices).toBe(2);
+
+    expect(engine.noteOff("future-a")).toBe(true);
+    expect(engine.getStatus().activeVoices).toBe(1);
+    engine.stopAll();
+    expect(engine.getStatus().activeVoices).toBe(0);
+    expect(context.sources[0]?.stopCalls.length).toBeGreaterThan(1);
+    expect(context.sources[1]?.stopCalls.length).toBeGreaterThan(1);
   });
 
   it("records request-to-schedule instrumentation without claiming output latency", async () => {
