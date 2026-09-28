@@ -1,13 +1,21 @@
 import {
   AUDIO_CONTRACT_VERSION,
   DEFAULT_DURATION_MS,
+  snapshotPreparePitchesRequest,
   snapshotRequest,
+  snapshotScheduledNoteRequest,
   validateAuditionRequest,
+  validatePreparePitchesRequest,
+  validateScheduledNoteRequest,
   type AuditionRequest,
   type AuditionResult,
   type AudioEngineCapability,
   type AudioEngineStatus,
   type InstrumentId,
+  type PreparePitchesRequest,
+  type PreparePitchesResult,
+  type ScheduledNoteRequest,
+  type ScheduleNoteResult,
   type UnlockResult
 } from "@st/score-audio-contracts";
 import { FREEPATS_CLASSICAL_GUITAR_MANIFEST } from "./instruments/freepats-classical-guitar.js";
@@ -23,7 +31,9 @@ const CAPABILITIES: readonly AudioEngineCapability[] = Object.freeze([
   "polyphony",
   "sample-instrument",
   "ios-user-gesture-unlock",
-  "bounded-note-off"
+  "bounded-note-off",
+  "pitch-preparation",
+  "scheduled-note"
 ]);
 
 export interface AudioEngineOptions {
@@ -112,6 +122,62 @@ export class WebAudioEngine {
     return listInstrumentProfiles();
   }
 
+  async preparePitches(input: PreparePitchesRequest): Promise<PreparePitchesResult> {
+    if (this.phase === "DISPOSED") {
+      return { ok: false, error: { code: "ENGINE_DISPOSED", message: "audio engine is disposed" } };
+    }
+    const error = validatePreparePitchesRequest(input);
+    if (error) return { ok: false, error: { code: "INVALID_REQUEST", message: error } };
+    if (input.instrumentId !== this.instrumentId) {
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_REQUEST",
+          message: `request instrument ${input.instrumentId} does not match active instrument ${this.instrumentId}`
+        }
+      };
+    }
+    if (!this.context || this.context.state !== "running") {
+      return { ok: false, error: { code: "AUDIO_UNLOCK_REQUIRED", message: "AudioContext must be unlocked from a user gesture" } };
+    }
+
+    const request = snapshotPreparePitchesRequest(input);
+    const unique = new Map<string, (typeof request.pitches)[number]>();
+    for (const pitch of request.pitches) {
+      unique.set(`${pitch.midi}:${pitch.cents ?? 0}`, pitch);
+    }
+
+    for (const pitch of unique.values()) {
+      let sample: ResolvedSample | null;
+      try {
+        sample = await this.sampleProvider.resolve(request.instrumentId, pitch, this.context);
+      } catch (cause) {
+        if (cause instanceof SampleProviderError) {
+          return { ok: false, error: { code: cause.code, message: cause.message } };
+        }
+        return {
+          ok: false,
+          error: {
+            code: "SAMPLE_UNAVAILABLE",
+            message: cause instanceof Error ? cause.message : "Sample resolution failed"
+          }
+        };
+      }
+      if (!sample) {
+        const profile = getInstrumentProfile(request.instrumentId);
+        return {
+          ok: false,
+          error: {
+            code: "SAMPLE_UNAVAILABLE",
+            message: `${profile.displayName} sample profile is ${profile.sampleReadiness.toLowerCase()}; no qualified runtime sample is available`
+          }
+        };
+      }
+    }
+
+    return { ok: true };
+  }
+
   async audition(input: AuditionRequest): Promise<AuditionResult> {
     const requestReceivedAt = this.monotonicClockMs();
     this.auditionAttempts += 1;
@@ -126,54 +192,48 @@ export class WebAudioEngine {
     }
 
     const request = snapshotRequest(input);
-    let sample: ResolvedSample | null;
-    try {
-      sample = await this.sampleProvider.resolve(request.instrumentId, request.pitch, this.context);
-    } catch (cause) {
-      if (cause instanceof SampleProviderError) {
-        return { ok: false, error: { code: cause.code, message: cause.message } };
-      }
-      return { ok: false, error: { code: "SAMPLE_UNAVAILABLE", message: cause instanceof Error ? cause.message : "Sample resolution failed" } };
+    const sampleResult = await this.resolveSample(request.instrumentId, request.pitch);
+    if (!sampleResult.ok) return sampleResult;
+    const result = this.scheduleResolvedVoice(request, sampleResult.sample, this.context.currentTime);
+    if (result.ok) {
+      this.auditionSuccesses += 1;
+      this.lastRequestToScheduleMs = Math.max(0, this.monotonicClockMs() - requestReceivedAt);
     }
-    if (!sample) {
-      const profile = getInstrumentProfile(request.instrumentId);
+    return result;
+  }
+
+  async scheduleNote(input: ScheduledNoteRequest): Promise<ScheduleNoteResult> {
+    if (this.phase === "DISPOSED") {
+      return { ok: false, error: { code: "ENGINE_DISPOSED", message: "audio engine is disposed" } };
+    }
+    const error = validateScheduledNoteRequest(input);
+    if (error) return { ok: false, error: { code: "INVALID_REQUEST", message: error } };
+    if (input.instrumentId !== this.instrumentId) {
       return {
         ok: false,
         error: {
-          code: "SAMPLE_UNAVAILABLE",
-          message: `${profile.displayName} sample profile is ${profile.sampleReadiness.toLowerCase()}; no qualified runtime sample is available`
+          code: "INVALID_REQUEST",
+          message: `request instrument ${input.instrumentId} does not match active instrument ${this.instrumentId}`
         }
       };
     }
-
-    try {
-      const now = this.context.currentTime;
-      const source = this.context.createBufferSource();
-      const gain = this.context.createGain();
-      source.buffer = sample.buffer;
-      const semitones = request.pitch.midi - sample.rootMidi + (request.pitch.cents ?? 0) / 100;
-      source.playbackRate.setValueAtTime(2 ** (semitones / 12), now);
-      const velocity = request.velocity ?? 0.8;
-      const sampleGain = sample.gain ?? 1;
-      const gainValue = Math.min(1, Math.max(0, velocity * sampleGain));
-      const durationMs = request.durationMs ?? DEFAULT_DURATION_MS;
-      const releaseSeconds = getInstrumentProfile(request.instrumentId).releaseSeconds;
-      const releaseStart = now + durationMs / 1000;
-      gain.gain.setValueAtTime(gainValue, now);
-      gain.gain.setValueAtTime(gainValue, releaseStart);
-      gain.gain.linearRampToValueAtTime(0, releaseStart + releaseSeconds);
-      source.connect(gain);
-      gain.connect(this.context.destination);
-      this.voices.add({ requestId: request.requestId, source, gain, startedAt: now }, now);
-      source.start(now);
-      source.stop(releaseStart + releaseSeconds + 0.01);
-      this.auditionSuccesses += 1;
-      this.lastRequestToScheduleMs = Math.max(0, this.monotonicClockMs() - requestReceivedAt);
-      return { ok: true, requestId: request.requestId };
-    } catch (cause) {
-      this.voices.stop(request.requestId, this.context.currentTime);
-      return { ok: false, error: { code: "ENGINE_FAILURE", message: cause instanceof Error ? cause.message : "Audio engine failure" } };
+    if (!this.context || this.context.state !== "running") {
+      return { ok: false, error: { code: "AUDIO_UNLOCK_REQUIRED", message: "AudioContext must be unlocked from a user gesture" } };
     }
+
+    const request = snapshotScheduledNoteRequest(input);
+    const sampleResult = await this.resolveSample(request.instrumentId, request.pitch);
+    if (!sampleResult.ok) return sampleResult;
+    if (request.startTimeSeconds < this.context.currentTime) {
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "startTimeSeconds is in the past for the active AudioContext"
+        }
+      };
+    }
+    return this.scheduleResolvedVoice(request, sampleResult.sample, request.startTimeSeconds);
   }
 
   noteOff(requestId: string): boolean {
@@ -222,6 +282,89 @@ export class WebAudioEngine {
     await this.sampleProvider.dispose?.();
     if (this.context && this.context.state !== "closed") await this.context.close();
     this.phase = "DISPOSED";
+  }
+
+  private async resolveSample(
+    instrumentId: InstrumentId,
+    pitch: AuditionRequest["pitch"]
+  ): Promise<
+    | { readonly ok: true; readonly sample: ResolvedSample }
+    | { readonly ok: false; readonly error: { readonly code: "OUT_OF_RANGE" | "SAMPLE_UNAVAILABLE"; readonly message: string } }
+  > {
+    if (!this.context) {
+      return { ok: false, error: { code: "SAMPLE_UNAVAILABLE", message: "AudioContext is unavailable" } };
+    }
+    let sample: ResolvedSample | null;
+    try {
+      sample = await this.sampleProvider.resolve(instrumentId, pitch, this.context);
+    } catch (cause) {
+      if (cause instanceof SampleProviderError) {
+        return { ok: false, error: { code: cause.code, message: cause.message } };
+      }
+      return {
+        ok: false,
+        error: {
+          code: "SAMPLE_UNAVAILABLE",
+          message: cause instanceof Error ? cause.message : "Sample resolution failed"
+        }
+      };
+    }
+    if (!sample) {
+      const profile = getInstrumentProfile(instrumentId);
+      return {
+        ok: false,
+        error: {
+          code: "SAMPLE_UNAVAILABLE",
+          message: `${profile.displayName} sample profile is ${profile.sampleReadiness.toLowerCase()}; no qualified runtime sample is available`
+        }
+      };
+    }
+    return { ok: true, sample };
+  }
+
+  private scheduleResolvedVoice(
+    request: AuditionRequest,
+    sample: ResolvedSample,
+    startTimeSeconds: number
+  ): AuditionResult {
+    if (!this.context) {
+      return { ok: false, error: { code: "ENGINE_FAILURE", message: "AudioContext is unavailable" } };
+    }
+
+    try {
+      const source = this.context.createBufferSource();
+      const gain = this.context.createGain();
+      source.buffer = sample.buffer;
+      const semitones = request.pitch.midi - sample.rootMidi + (request.pitch.cents ?? 0) / 100;
+      source.playbackRate.setValueAtTime(2 ** (semitones / 12), startTimeSeconds);
+      const velocity = request.velocity ?? 0.8;
+      const sampleGain = sample.gain ?? 1;
+      const gainValue = Math.min(1, Math.max(0, velocity * sampleGain));
+      const durationMs = request.durationMs ?? DEFAULT_DURATION_MS;
+      const releaseSeconds = getInstrumentProfile(request.instrumentId).releaseSeconds;
+      const releaseStart = startTimeSeconds + durationMs / 1000;
+      gain.gain.setValueAtTime(gainValue, startTimeSeconds);
+      gain.gain.setValueAtTime(gainValue, releaseStart);
+      gain.gain.linearRampToValueAtTime(0, releaseStart + releaseSeconds);
+      source.connect(gain);
+      gain.connect(this.context.destination);
+      this.voices.add(
+        { requestId: request.requestId, source, gain, startedAt: startTimeSeconds },
+        this.context.currentTime
+      );
+      source.start(startTimeSeconds);
+      source.stop(releaseStart + releaseSeconds + 0.01);
+      return { ok: true, requestId: request.requestId };
+    } catch (cause) {
+      this.voices.stop(request.requestId, this.context.currentTime);
+      return {
+        ok: false,
+        error: {
+          code: "ENGINE_FAILURE",
+          message: cause instanceof Error ? cause.message : "Audio engine failure"
+        }
+      };
+    }
   }
 
   private warmDecodedSamples(): void {
