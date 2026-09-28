@@ -1,7 +1,7 @@
 # Consumer Integration
 
-Runtime baseline: `@st/score-audio-web 0.1.2`  
-Public audition contract: `@st/score-audio-contracts 0.1.0`
+Runtime baseline: `@st/score-audio-web 0.2.0`  
+Public audio contract: `@st/score-audio-contracts 0.2.0`
 
 ST Score Audio Engine is intentionally independent from Editor Core. Consumers pass only validated public audio contracts; the audio package imports no editor, renderer, DOM identity, or score-model internals.
 
@@ -37,9 +37,9 @@ The current runtime capabilities include:
 - polyphony infrastructure;
 - sample instruments;
 - iOS user-gesture unlock;
-- bounded note-off.
+- bounded note-off;\n- bounded pitch preparation;\n- absolute-time scheduled note.
 
-Runtime version 0.1.2 does not change the public audition contract semantics from contract v0.1.0.
+Runtime version 0.2.0 preserves immediate `audition()` semantics and adds transportless `preparePitches()` plus absolute AudioContext-time `scheduleNote()`. Hosts remain responsible for beat/tempo/transport conversion.
 
 ## Browser lifecycle
 

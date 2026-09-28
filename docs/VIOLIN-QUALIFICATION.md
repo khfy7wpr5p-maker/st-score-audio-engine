@@ -2,7 +2,7 @@
 
 Status: **COMPLETED / ACTIVE / QUALIFIED**.
 
-`VIOLIN` completed the P08 qualification sequence and was promoted into the default browser runtime in ST Score Audio Engine v0.1.2 on 2026-09-14.
+`VIOLIN` completed the P08 qualification sequence and was promoted into the default browser runtime in ST Score Audio Engine v0.1.2 on 2026-09-14. Runtime v0.2.0 preserves that qualification while adding transportless pitch preparation and scheduled-note support.
 
 ## Qualified source
 
@@ -13,7 +13,7 @@ Status: **COMPLETED / ACTIVE / QUALIFIED**.
 - Source tree SHA-1: `fa78dd38fcf6d707d46eca4a1d46df32788bc99d`
 - Author/publisher: Versilian Studios LLC
 - License: CC0 1.0
-- Runtime sample binaries: external fetch only; not committed to this repository
+- Runtime sample binaries: external fetch in the source runtime; `export:student-runtime` stages the exact pinned 15-file set for downstream static/offline packaging
 - Manifest id: `vsco2ce-solo-violin-arco-vib-p-v1`
 
 The qualified manifest uses the `p` layer. Root samples cover G3 through C7 and bounded mapping permits no requested pitch to exceed two semitones of nearest-root transposition.
@@ -59,4 +59,4 @@ Violin qualification must continue to preserve:
 - iOS user-gesture unlock;
 - fail-closed behavior for unqualified instruments;
 - suspended Classical Guitar lifecycle;
-- contract v0.1.0 semantics.
+- immediate audition backward compatibility alongside public contract v0.2.0 scheduled-audio additions.
