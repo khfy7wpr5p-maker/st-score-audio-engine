@@ -128,45 +128,67 @@ It does not own musical transport.
 
 ## 7. Shared AudioContext rule
 
-A single Student-owned audio session must provide one `AudioContext` instance to both:
+A single Student-owned audio session must create one `AudioContext` instance and expose a memoized `audioContextFactory: () => AudioContext` closure that always returns that same instance for the lifetime of the active Student playback session.
 
-- the existing piano playback scheduler;
-- the violin audio engine.
+That exact factory is passed to both:
 
-The implementation may use a shared context provider/factory, but both consumers must receive the same object identity for one active Student playback session.
+- the existing `createWebAudioPianoEngine({ audioContextFactory, ... })`;
+- `createAudioEngine({ audioContextFactory, ... })` from `st-score-audio-engine`.
 
-This avoids mapping between independent Web Audio clocks and lets Student compute one absolute `whenSeconds` value for both piano and violin voices.
+Both engines must therefore observe the same `AudioContext.currentTime` domain and the same object identity.
 
-Creating a second AudioContext for the violin lane during an active playback session is a contract violation.
+This avoids mapping between independent Web Audio clocks and lets Student compute one absolute `startTimeSeconds` value for both piano and violin voices.
+
+Creating a second AudioContext for the violin lane during an active playback session is a contract violation. The shared context may be replaced only when the whole Student audio session is disposed and a new session is created.
 
 ## 8. Audio Engine scheduled-note contract
 
-Audio Engine will add a transportless scheduled-note capability without changing existing `audition()` semantics.
+Audio Engine will add transportless sample-preparation and scheduled-note capabilities without changing existing `audition()` semantics.
 
-Conceptual contract:
+The public contracts version advances from `0.1.0` to `0.2.0`.
+
+Required public shapes:
 
 ```ts
-interface ScheduledNoteRequest extends AuditionRequest {
+export interface PreparePitchesRequest {
+  readonly instrumentId: InstrumentId;
+  readonly pitches: readonly CanonicalPitch[];
+}
+
+export type PreparePitchesResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: AudioEngineError };
+
+export interface ScheduledNoteRequest extends AuditionRequest {
   readonly startTimeSeconds: number;
 }
 
+export type ScheduleNoteResult = AuditionResult;
+```
+
+Required public methods:
+
+```ts
+preparePitches(request: PreparePitchesRequest): Promise<PreparePitchesResult>
 scheduleNote(request: ScheduledNoteRequest): Promise<ScheduleNoteResult>
 ```
 
 Required semantics:
 
+- `preparePitches()` resolves and decodes the bounded unique pitch set needed by the target schedule before playback begins;
+- `preparePitches()` accepts at most 128 pitch entries, rejects invalid/out-of-range values, and does not start a voice;
+- violin routing is not ready until `preparePitches()` succeeds for the complete target schedule pitch set;
 - `startTimeSeconds` is expressed in the bound engine AudioContext time domain;
+- `scheduleNote()` must observe the requested absolute start time and must not reinterpret it as "play now";
+- if `startTimeSeconds < audioContext.currentTime` when the resolved voice is ready to be committed, `scheduleNote()` returns `INVALID_REQUEST` and does not call `source.start()`;
 - Audio Engine must not interpret beats, tempo, measures, repeat, or transport state;
 - request validation remains bounded and fail-closed;
 - `instrumentId` must match the active instrument;
 - stale source/package evidence must be rejected by the Student host before the call;
-- a start time materially in the past is rejected rather than silently shifted to "now";
 - existing immediate `audition()` remains backward compatible;
 - `noteOff(requestId)` and `stopAll()` remain valid teardown primitives;
-- capability negotiation adds an explicit scheduled-note capability;
-- the public contract version must advance because this is a public API addition.
-
-The exact type names and numeric past-time tolerance will be fixed in the implementation plan after the written spec is approved.
+- capability negotiation adds `"scheduled-note"` and `"pitch-preparation"`;
+- no new transport-style capability is added.
 
 ## 9. Student violin audio lane
 
@@ -376,8 +398,9 @@ No visual redesign is required by this stage.
 
 Expected responsibility:
 
-- scheduled-note public contract;
-- capability negotiation;
+- public contract v0.2.0 with `preparePitches()` and `scheduleNote()`;
+- capability negotiation for `pitch-preparation` and `scheduled-note`;
+- bounded target-pitch decode preparation;
 - future-start scheduling in the bound AudioContext;
 - tests for past/future scheduling, stopAll, noteOff, stale/invalid requests, Safari/WebKit behavior;
 - preserve existing audition contract behavior.
