@@ -1,4 +1,4 @@
-export const AUDIO_CONTRACT_VERSION = "0.1.0" as const;
+export const AUDIO_CONTRACT_VERSION = "0.2.0" as const;
 
 export const INSTRUMENT_IDS = Object.freeze([
   "GRAND_PIANO",
@@ -45,12 +45,23 @@ export interface AuditionRequest {
   readonly sourceEventId?: string;
 }
 
+export interface PreparePitchesRequest {
+  readonly instrumentId: InstrumentId;
+  readonly pitches: readonly CanonicalPitch[];
+}
+
+export interface ScheduledNoteRequest extends AuditionRequest {
+  readonly startTimeSeconds: number;
+}
+
 export type AudioEngineCapability =
   | "note-audition"
   | "polyphony"
   | "sample-instrument"
   | "ios-user-gesture-unlock"
-  | "bounded-note-off";
+  | "bounded-note-off"
+  | "pitch-preparation"
+  | "scheduled-note";
 
 export type AudioEnginePhase = "NEW" | "PREPARED" | "READY" | "SUSPENDED" | "DISPOSED" | "ERROR";
 
@@ -80,6 +91,12 @@ export interface AudioEngineError {
 export type AuditionResult =
   | { readonly ok: true; readonly requestId: string }
   | { readonly ok: false; readonly error: AudioEngineError };
+
+export type PreparePitchesResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: AudioEngineError };
+
+export type ScheduleNoteResult = AuditionResult;
 
 export type UnlockResult =
   | { readonly ok: true }
