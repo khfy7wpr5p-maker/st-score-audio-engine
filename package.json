@@ -18,7 +18,7 @@
     "test:unit": "vitest run",
     "test:browser": "playwright test",
     "browser:serve": "vite --host 127.0.0.1 --port 4173",
-    "export:student-runtime": "npm run build:browser && node scripts/export-student-runtime.mjs"
+    "export:student-runtime": "npm run build && npm run build:browser && node scripts/export-student-runtime.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0",
