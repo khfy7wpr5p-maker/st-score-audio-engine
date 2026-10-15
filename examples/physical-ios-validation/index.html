@@ -21,7 +21,7 @@
 <body>
 <main>
   <h1>ST Score Audio — Fiziksel iPhone Safari Doğrulama</h1>
-  <p><small>Gerçek Salamander Grand Piano ve FreePats Classical Guitar runtime sample manifestleri kullanılır. Diagnostic Tone yalnız fiziksel WebAudio çıkışını ayırmak için test sinyalidir; üretim enstrümanı değildir.</small></p>
+  <p><small>Grand Piano production engine üzerinden doğrulanır. FreePats Classical Guitar ise yalnız bu fiziksel qualification sayfasında manifest + ManifestSampleProvider ile doğrudan test edilir; bu yol ürün lifecycle durumunu değiştirmez ve SUSPENDED gitarı production engine içinde etkinleştirmez. Diagnostic Tone yalnız fiziksel WebAudio çıkışını ayırmak için test sinyalidir; üretim enstrümanı değildir.</small></p>
   <div id="status" class="status">Başlangıç: NEW</div>
   <div class="grid">
     <button id="speakerTest" class="full">0. Hoparlör / WebAudio Diagnostic Tone</button>
@@ -30,19 +30,26 @@
     <button id="pianoRetrigger">Piano C4 Retrigger</button>
     <button id="pianoChord" class="full">Piano C–E–G Akor</button>
     <button id="rest" class="full">REST Sessizlik Kontrolü</button>
-    <button id="guitarE3">Gitar E3</button>
-    <button id="guitarChord">Gitar E–G–B Akor</button>
-    <button id="switch" class="full">Piano → Guitar → Piano Switch</button>
+    <button id="guitarE3">Gitar E3 — Qualification Only</button>
+    <button id="guitarChord">Gitar E–G–B — Qualification Only</button>
+    <button id="switch" class="full">Piano → Guitar(Qualification) → Piano Switch</button>
     <button id="stop" class="full">Stop All</button>
   </div>
   <div id="log" class="status log"></div>
 </main>
 <script type="module">
-  import { createAudioEngine } from '/packages/web/src/index.ts';
+  import {
+    createAudioEngine,
+    ManifestSampleProvider,
+    FREEPATS_CLASSICAL_GUITAR_MANIFEST
+  } from '/packages/web/src/index.ts';
 
   const status = document.querySelector('#status');
   const logNode = document.querySelector('#log');
   const engine = createAudioEngine();
+  const qualificationGuitarProvider = new ManifestSampleProvider([FREEPATS_CLASSICAL_GUITAR_MANIFEST]);
+  const qualificationGuitarVoices = new Set();
+  let qualificationGuitarContext = null;
   let seq = 0;
 
   const log = (message) => {
@@ -53,7 +60,8 @@
   const show = (label) => {
     const s = engine.getStatus();
     const d = engine.getDiagnostics();
-    status.textContent = `${label}\nphase=${s.phase} instrument=${s.instrumentId} voices=${s.activeVoices}/${s.voiceLimit} context=${s.audioContextState ?? 'none'}\naudition=${d.auditionSuccesses}/${d.auditionAttempts}${d.lastRequestToScheduleMs === undefined ? '' : ` scheduleMs=${d.lastRequestToScheduleMs.toFixed(1)}`}`;
+    const qualificationState = qualificationGuitarContext?.state ?? 'none';
+    status.textContent = `${label}\nproduction phase=${s.phase} instrument=${s.instrumentId} voices=${s.activeVoices}/${s.voiceLimit} context=${s.audioContextState ?? 'none'}\nqualificationGuitarContext=${qualificationState} qualificationGuitarVoices=${qualificationGuitarVoices.size}\naudition=${d.auditionSuccesses}/${d.auditionAttempts}${d.lastRequestToScheduleMs === undefined ? '' : ` scheduleMs=${d.lastRequestToScheduleMs.toFixed(1)}`}`;
   };
 
   const req = (midi, instrumentId, durationMs = 800) => ({
@@ -100,10 +108,23 @@
     if (s.audioContextState !== 'running') throw new Error(`AUDIO_UNLOCK_REQUIRED: context=${s.audioContextState ?? 'none'}`);
   }
 
+  async function ensureQualificationGuitarContext() {
+    const ContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!ContextCtor) throw new Error('AudioContext API unavailable');
+    if (!qualificationGuitarContext || qualificationGuitarContext.state === 'closed') {
+      qualificationGuitarContext = new ContextCtor();
+    }
+    const context = qualificationGuitarContext;
+    if (context.state !== 'running') await context.resume();
+    if (context.state !== 'running') throw new Error(`GUITAR_QUALIFICATION_AUDIO_UNLOCK_REQUIRED: context=${context.state}`);
+    return context;
+  }
+
   async function unlock() {
     await ensureEngineUnlocked();
+    await ensureQualificationGuitarContext();
     show('UNLOCK_OK');
-    log('UNLOCK_OK context=running');
+    log('UNLOCK_OK production+qualification context=running');
   }
 
   async function useInstrument(instrumentId) {
@@ -128,6 +149,59 @@
     if (failed && !failed.ok) throw new Error(`${failed.error.code}: ${failed.error.message}`);
     log(`CHORD_OK ${instrumentId} midi=${midis.join(',')}`);
     show('CHORD_OK — fiziksel sesi ayrıca doğrula');
+  }
+
+  function scheduleQualificationGuitarSample(context, midi, sample, startTime, durationMs) {
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    const durationSeconds = Math.max(0.08, durationMs / 1000);
+    const endTime = startTime + durationSeconds;
+    const level = Math.max(0.0001, Math.min(0.95, 0.9 * (sample.gain ?? 1)));
+
+    source.buffer = sample.buffer;
+    source.playbackRate.setValueAtTime(2 ** ((midi - sample.rootMidi) / 12), startTime);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(level, startTime + 0.01);
+    gain.gain.setValueAtTime(level, Math.max(startTime + 0.01, endTime - 0.04));
+    gain.gain.exponentialRampToValueAtTime(0.0001, endTime);
+    source.connect(gain);
+    gain.connect(context.destination);
+    qualificationGuitarVoices.add(source);
+    source.addEventListener('ended', () => qualificationGuitarVoices.delete(source), { once: true });
+    source.start(startTime);
+    source.stop(endTime + 0.02);
+  }
+
+  async function qualificationGuitarAudition(midi, durationMs = 1000) {
+    const context = await ensureQualificationGuitarContext();
+    const sample = await qualificationGuitarProvider.resolve('CLASSICAL_GUITAR', { midi }, context);
+    if (!sample) throw new Error(`GUITAR_QUALIFICATION_SAMPLE_UNAVAILABLE: midi=${midi}`);
+    const startTime = context.currentTime + 0.02;
+    scheduleQualificationGuitarSample(context, midi, sample, startTime, durationMs);
+    log(`GUITAR_QUALIFICATION_AUDITION_OK midi=${midi} root=${sample.rootMidi}`);
+    show('GUITAR_QUALIFICATION_AUDITION_OK — fiziksel sesi ayrıca doğrula');
+  }
+
+  async function qualificationGuitarChord(midis, durationMs = 1000) {
+    const context = await ensureQualificationGuitarContext();
+    const samples = await Promise.all(midis.map(async (midi) => {
+      const sample = await qualificationGuitarProvider.resolve('CLASSICAL_GUITAR', { midi }, context);
+      if (!sample) throw new Error(`GUITAR_QUALIFICATION_SAMPLE_UNAVAILABLE: midi=${midi}`);
+      return { midi, sample };
+    }));
+    const startTime = context.currentTime + 0.02;
+    for (const { midi, sample } of samples) {
+      scheduleQualificationGuitarSample(context, midi, sample, startTime, durationMs);
+    }
+    log(`GUITAR_QUALIFICATION_CHORD_OK midi=${midis.join(',')}`);
+    show('GUITAR_QUALIFICATION_CHORD_OK — fiziksel sesi ayrıca doğrula');
+  }
+
+  function stopQualificationGuitar() {
+    for (const source of [...qualificationGuitarVoices]) {
+      try { source.stop(); } catch {}
+    }
+    qualificationGuitarVoices.clear();
   }
 
   async function run(label, fn) {
@@ -156,31 +230,34 @@
   document.querySelector('#pianoChord').addEventListener('click', () => run('PIANO_CHORD', () => chord([60,64,67], 'GRAND_PIANO')));
   document.querySelector('#rest').addEventListener('click', () => run('REST', async () => {
     engine.stopAll();
+    stopQualificationGuitar();
     await new Promise(resolve => setTimeout(resolve, 1000));
     log('REST_HOST_NO_REQUEST_OK');
     show('REST: HOST SENT NO AUDITION REQUEST — 1 sn sessizlik duyulmalı');
   }));
-  document.querySelector('#guitarE3').addEventListener('click', () => run('GUITAR_E3', () => audition(52, 'CLASSICAL_GUITAR', 1000)));
-  document.querySelector('#guitarChord').addEventListener('click', () => run('GUITAR_CHORD', () => chord([52,55,59], 'CLASSICAL_GUITAR')));
+  document.querySelector('#guitarE3').addEventListener('click', () => run('GUITAR_E3', () => qualificationGuitarAudition(52, 1000)));
+  document.querySelector('#guitarChord').addEventListener('click', () => run('GUITAR_CHORD', () => qualificationGuitarChord([52,55,59], 1000)));
   document.querySelector('#switch').addEventListener('click', () => run('SWITCH', async () => {
     await ensureEngineUnlocked();
     await audition(60, 'GRAND_PIANO', 500);
     await new Promise(resolve => setTimeout(resolve, 650));
-    await audition(52, 'CLASSICAL_GUITAR', 700);
+    await qualificationGuitarAudition(52, 700);
     await new Promise(resolve => setTimeout(resolve, 850));
     await audition(60, 'GRAND_PIANO', 500);
-    log('SWITCH_PIANO_GUITAR_PIANO_OK');
+    log('SWITCH_PIANO_GUITAR_QUALIFICATION_PIANO_OK');
     show('SWITCH_OK — fiziksel sesi ayrıca doğrula');
   }));
   document.querySelector('#stop').addEventListener('click', () => {
     engine.stopAll();
+    stopQualificationGuitar();
     log('STOP_ALL');
     show('STOP_ALL');
   });
 
   document.addEventListener('visibilitychange', () => {
     const s = engine.getStatus();
-    log(`VISIBILITY ${document.visibilityState} engineContext=${s.audioContextState ?? 'none'}`);
+    const qualificationState = qualificationGuitarContext?.state ?? 'none';
+    log(`VISIBILITY ${document.visibilityState} engineContext=${s.audioContextState ?? 'none'} qualificationGuitarContext=${qualificationState}`);
     show(`VISIBILITY ${document.visibilityState} — sonraki ses dokunuşu context'i tekrar resume eder`);
   });
 
