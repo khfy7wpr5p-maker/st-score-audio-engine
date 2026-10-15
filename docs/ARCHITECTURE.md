@@ -1,6 +1,6 @@
 # ST Score Audio Engine Architecture
 
-Document refresh: 2026-10-03  
+Document refresh: 2026-10-15  
 Runtime baseline on the VIOLIN-03 implementation branch: `@st/score-audio-web 0.2.0`  
 Public audio contract: `@st/score-audio-contracts 0.2.0`
 
@@ -151,10 +151,10 @@ Registry entries use two independent concepts:
 - lifecycle: `ACTIVE | SUSPENDED | SCAFFOLD`
 - sample readiness: `QUALIFIED | SUSPENDED | UNQUALIFIED`
 
-Current runtime state on the VIOLIN-03 branch:
+Current runtime state:
 - Grand Piano — ACTIVE / QUALIFIED
 - Violin — ACTIVE / QUALIFIED
-- Classical Guitar — SUSPENDED / SUSPENDED
+- Classical Guitar — ACTIVE / QUALIFIED
 - remaining bowed strings, woodwinds, and brass — SCAFFOLD / UNQUALIFIED
 
 A stable instrument id does not imply product readiness. Unqualified instruments must fail explicitly with `SAMPLE_UNAVAILABLE`.
@@ -165,10 +165,10 @@ Production-capable manifests are version-pinned and include source/license/check
 
 The default runtime provider contains:
 - Salamander Grand Piano V3;
-- retained FreePats Classical Guitar manifest;
+- qualified FreePats Spanish Classical Guitar manifest;
 - qualified VSCO 2 CE Solo Violin / Arco Vibrato manifest.
 
-Presence of a retained manifest does not override registry lifecycle. In particular, Classical Guitar remains suspended as a product decision.
+Registry lifecycle remains authoritative: qualification evidence alone does not activate an instrument. Classical Guitar completed its automated and physical P08 qualification gates and was explicitly promoted to `ACTIVE / QUALIFIED` on 2026-10-15.
 
 ### Student runtime export
 
@@ -220,19 +220,17 @@ Not allowed:
 
 ## VIOLIN-03 checkpoint
 
-Audio Engine Tasks 1–3 are complete on draft PR #16 at exact implementation head `298ddd61ba3854231ff7e59a88c22c4a01530a41` before this documentation refresh:
+Audio Engine Tasks 1–3 are complete:
 
 1. public Audio Contract `0.2.0`;
 2. `preparePitches()` + absolute-time `scheduleNote()`;
 3. deterministic Student runtime/sample export.
 
-Fresh pre-documentation verification evidence:
-- CI `37067904213`: Node 20, Node 22, WebKit/browser PASS;
-- Export Verification `37067898943`: build/export/integrity/artifact PASS.
+The branch also includes explicit shared-`AudioContext` ownership semantics and the completed Classical Guitar P08 qualification/activation path. Grand Piano, Violin, and Classical Guitar are all `ACTIVE / QUALIFIED` in the runtime catalog.
 
-The next implementation boundary is in `st-student-app`: shared AudioContext session + pinned runtime loader, followed by exact target-part schedule, fail-closed violin lane, scheduler routing, offline cache, browser qualification, and physical iPhone/Safari gate.
+The next implementation boundary is in `st-student-app`: shared AudioContext session + pinned runtime loader, followed by exact target-part schedule, fail-closed external audio lane, scheduler routing, offline cache, browser qualification, and physical iPhone/Safari gate.
 
-PR #16 remains draft/unmerged. This document update does not authorize merge, release, deploy, or Render mutation.
+This architecture document does not by itself authorize release, deploy, Render mutation, or downstream Student routing changes.
 
 ## Explicit non-goals
 
