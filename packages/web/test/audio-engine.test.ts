@@ -110,11 +110,11 @@ describe("WebAudioEngine", () => {
     const context = new FakeAudioContext();
     const engine = createAudioEngine({ sampleProvider, audioContextFactory: () => context as unknown as AudioContext });
     await engine.unlockFromUserGesture();
-    const guitarRequest = { ...request(), requestId: "g1", instrumentId: "CLASSICAL_GUITAR" as const };
-    expect(await engine.audition(guitarRequest)).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
-    await engine.setInstrument("CLASSICAL_GUITAR");
-    expect(await engine.audition(guitarRequest)).toEqual({ ok: true, requestId: "g1" });
-    expect(engine.getStatus().instrumentId).toBe("CLASSICAL_GUITAR");
+    const violinRequest = { ...request(), requestId: "v1", instrumentId: "VIOLIN" as const };
+    expect(await engine.audition(violinRequest)).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    await engine.setInstrument("VIOLIN");
+    expect(await engine.audition(violinRequest)).toEqual({ ok: true, requestId: "v1" });
+    expect(engine.getStatus().instrumentId).toBe("VIOLIN");
   });
 
   it("supports explicit noteOff", async () => {
