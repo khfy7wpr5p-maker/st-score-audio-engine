@@ -23,22 +23,22 @@ See `docs/ARCHITECTURE.md` for the full boundary map.
 
 ## Packages
 
-- `@st/score-audio-contracts` — public contract v0.1.0, instrument ids, result/error types, and runtime validation.
-- `@st/score-audio-web` — browser runtime v0.1.2: Web Audio lifecycle, manifests, sample provider, caches, bounded voices, diagnostics, and iOS Safari unlock.
+- `@st/score-audio-contracts` — public contract v0.2.0, instrument ids, result/error types, and runtime validation.
+- `@st/score-audio-web` — browser runtime v0.2.0: Web Audio lifecycle, manifests, bounded pitch preparation, absolute-time scheduled notes, sample provider, caches, bounded voices, diagnostics, and iOS Safari unlock.
 - `@st/score-audio-testkit` — deterministic fake Web Audio primitives for CI.
 
 ## Current instrument lifecycle
 
 - `GRAND_PIANO` — **ACTIVE / QUALIFIED**.
 - `VIOLIN` — **ACTIVE / QUALIFIED** since 2026-09-14. Uses the qualified VSCO 2 CE Solo Violin / Arco Vibrato CC0 manifest in the default runtime provider.
-- `CLASSICAL_GUITAR` — **SUSPENDED**. Runtime/provenance is retained, but product activation is intentionally paused pending its own qualification sequence.
+- `CLASSICAL_GUITAR` — **ACTIVE / QUALIFIED** since 2026-10-15. Uses the FreePats Spanish Classical Guitar CC0 manifest after automated browser, physical PC, Safari/iOS, latency, REST-silence, Stop All, and instrument-switch qualification.
 - `VIOLA`, `CELLO`, `DOUBLE_BASS` — **SCAFFOLD / UNQUALIFIED**.
 - `FLUTE`, `OBOE`, `CLARINET_BB`, `BASSOON` — **SCAFFOLD / UNQUALIFIED**.
 - `TRUMPET_BB`, `FRENCH_HORN_F`, `TROMBONE`, `TUBA` — **SCAFFOLD / UNQUALIFIED**.
 
 A scaffold instrument has a stable registry identity but no implied production sample pack. Without a qualified manifest, audition fails explicitly with `SAMPLE_UNAVAILABLE`; the engine never silently substitutes another timbre.
 
-Qualified audio binaries are fetched from version-pinned external sources or host-overridden storage and are not committed into this repository.
+Qualified audio binaries are fetched from version-pinned external sources or host-overridden storage and are not committed into this repository. `npm run export:student-runtime` creates a deterministic downstream staging export with the pinned Student violin sample set, per-asset SHA-256 evidence, and CC0 provenance.
 
 ## Development
 

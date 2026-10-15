@@ -1,0 +1,47 @@
+name: VIOLIN-03 Export Verification
+
+on:
+  push:
+    branches:
+      - onderozudogru/violin-03-audio-engine-implementation
+
+permissions:
+  contents: read
+
+jobs:
+  export-student-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts
+      - run: npm run export:student-runtime
+      - name: Verify exported runtime
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, readdir, stat } from "node:fs/promises";
+          const root = "dist/student-runtime";
+          const manifest = JSON.parse(await readFile(root + "/runtime-manifest.json", "utf8"));
+          const fail = (message) => { throw new Error(message); };
+          if (manifest.browserRuntimeVersion !== "0.2.0") fail("runtime version mismatch");
+          if (manifest.publicContractVersion !== "0.2.0") fail("contract version mismatch");
+          if (manifest.violin?.sourceTag !== "1.1.0") fail("VSCO source tag mismatch");
+          if (manifest.violin?.sourceTreeSha1 !== "fa78dd38fcf6d707d46eca4a1d46df32788bc99d") fail("VSCO tree mismatch");
+          if (manifest.violin?.samples?.length !== 15) fail("expected 15 violin samples");
+          const files = await readdir(root + "/samples");
+          if (files.length !== 15) fail("exported sample count mismatch");
+          for (const entry of manifest.assets ?? []) {
+            if (!Number.isInteger(entry.bytes) || entry.bytes <= 0) fail("invalid asset byte count");
+            if (!/^[0-9a-f]{64}$/.test(entry.sha256 ?? "")) fail("invalid asset sha256");
+            const info = await stat(root + "/" + entry.path);
+            if (info.size !== entry.bytes) fail("asset byte count does not match file");
+          }
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: violin03-student-runtime
+          path: dist/student-runtime/
+          if-no-files-found: error
+          retention-days: 7

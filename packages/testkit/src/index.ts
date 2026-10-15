@@ -18,10 +18,11 @@ export class FakeBufferSourceNode {
   onended: (() => void) | null = null;
   started = false;
   stopped = false;
+  readonly startCalls: Array<number | undefined> = [];
   readonly stopCalls: Array<number | undefined> = [];
   connect(_destination: unknown): unknown { return _destination; }
   disconnect(): void {}
-  start(_when?: number): void { this.started = true; }
+  start(when?: number): void { this.started = true; this.startCalls.push(when); }
   stop(when?: number): void { this.stopped = true; this.stopCalls.push(when); }
 }
 

@@ -9,13 +9,13 @@ describe("instrument catalog", () => {
     for (const id of INSTRUMENT_IDS) expect(isInstrumentId(id)).toBe(true);
   });
 
-  it("keeps piano and qualified violin active, guitar suspended, and remaining orchestral families scaffold-only", () => {
+  it("keeps piano, qualified violin, and qualified classical guitar active while remaining orchestral families stay scaffold-only", () => {
     expect(getInstrumentProfile("GRAND_PIANO").lifecycle).toBe("ACTIVE");
     expect(getInstrumentProfile("GRAND_PIANO").sampleReadiness).toBe("QUALIFIED");
     expect(getInstrumentProfile("VIOLIN").lifecycle).toBe("ACTIVE");
     expect(getInstrumentProfile("VIOLIN").sampleReadiness).toBe("QUALIFIED");
-    expect(getInstrumentProfile("CLASSICAL_GUITAR").lifecycle).toBe("SUSPENDED");
-    expect(getInstrumentProfile("CLASSICAL_GUITAR").sampleReadiness).toBe("SUSPENDED");
+    expect(getInstrumentProfile("CLASSICAL_GUITAR").lifecycle).toBe("ACTIVE");
+    expect(getInstrumentProfile("CLASSICAL_GUITAR").sampleReadiness).toBe("QUALIFIED");
 
     for (const id of [
       "VIOLA", "CELLO", "DOUBLE_BASS",
@@ -31,7 +31,7 @@ describe("instrument catalog", () => {
 
   it("can expose only product-active profiles without deleting suspended/scaffold definitions", () => {
     const active = listInstrumentProfiles({ includeSuspended: false, includeScaffold: false });
-    expect(active.map((entry) => entry.id)).toEqual(["GRAND_PIANO", "VIOLIN"]);
+    expect(active.map((entry) => entry.id)).toEqual(["GRAND_PIANO", "CLASSICAL_GUITAR", "VIOLIN"]);
     expect(INSTRUMENT_CATALOG.some((entry) => entry.id === "CLASSICAL_GUITAR")).toBe(true);
     expect(INSTRUMENT_CATALOG.some((entry) => entry.id === "VIOLA")).toBe(true);
   });

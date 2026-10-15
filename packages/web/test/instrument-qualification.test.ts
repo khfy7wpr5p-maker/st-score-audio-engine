@@ -28,11 +28,12 @@ describe("P08 instrument qualification foundation", () => {
     });
   });
 
-  it("never lets suspended guitar re-enter qualification through evidence", () => {
+  it("recognizes fully qualified Classical Guitar as already active after promotion", () => {
     const empty = makeEmptyQualificationCandidateV1("CLASSICAL_GUITAR");
     const candidate = {
       ...empty,
-      candidateId: "test-only",
+      candidateId: "freepats-classical-guitar-qualified-v1",
+      sourceLabel: "FreePats Spanish Classical Guitar / CC0",
       evidence: {
         sourceCandidate: "PASS" as const,
         licenseProvenance: "PASS" as const,
@@ -45,8 +46,11 @@ describe("P08 instrument qualification foundation", () => {
       }
     };
     const decision = evaluateInstrumentQualificationV1(candidate);
+    expect(decision.alreadyQualified).toBe(true);
     expect(decision.eligibleForActivation).toBe(false);
-    expect(decision.blockedByLifecycle).toBe(true);
+    expect(decision.blockedByLifecycle).toBe(false);
+    expect(decision.missingGates).toEqual([]);
+    expect(decision.failedGates).toEqual([]);
   });
 
   it("requires a real source candidate for untouched scaffold instruments", () => {

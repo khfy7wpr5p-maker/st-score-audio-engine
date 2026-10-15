@@ -41,7 +41,7 @@ const profile = (
 
 export const INSTRUMENT_CATALOG: readonly Readonly<InstrumentProfileV1>[] = Object.freeze([
   profile("GRAND_PIANO", "Grand Piano", "KEYBOARD", "ACTIVE", "QUALIFIED", true, 0.12, ["natural", "sustain"], ["Production audition target."]),
-  profile("CLASSICAL_GUITAR", "Classical Guitar", "PLUCKED_STRING", "SUSPENDED", "SUSPENDED", true, 0.18, ["natural"], ["Runtime profile retained; production activation is intentionally deferred until its own physical qualification pass."]),
+  profile("CLASSICAL_GUITAR", "Classical Guitar", "PLUCKED_STRING", "ACTIVE", "QUALIFIED", true, 0.18, ["natural"], ["FreePats Spanish Classical Guitar CC0 candidate passed automated browser plus physical PC, Safari/iOS, latency, REST-silence, Stop All, and instrument-switch qualification on 2026-10-15."]),
 
   profile("VIOLIN", "Violin", "BOWED_STRING", "ACTIVE", "QUALIFIED", false, 0.20, ["sustain", "staccato", "legato", "pizzicato", "tremolo"], ["VSCO 2 CE Arco Vibrato CC0 candidate passed automated WebKit plus physical PC, Safari/iOS, and latency qualification on 2026-09-14."]),
   profile("VIOLA", "Viola", "BOWED_STRING", "SCAFFOLD", "UNQUALIFIED", false, 0.22, ["sustain", "staccato", "legato", "pizzicato", "tremolo"]),
