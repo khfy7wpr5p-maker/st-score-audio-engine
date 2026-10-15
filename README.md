@@ -31,7 +31,7 @@ See `docs/ARCHITECTURE.md` for the full boundary map.
 
 - `GRAND_PIANO` — **ACTIVE / QUALIFIED**.
 - `VIOLIN` — **ACTIVE / QUALIFIED** since 2026-09-14. Uses the qualified VSCO 2 CE Solo Violin / Arco Vibrato CC0 manifest in the default runtime provider.
-- `CLASSICAL_GUITAR` — **SUSPENDED**. Runtime/provenance is retained, but product activation is intentionally paused pending its own qualification sequence.
+- `CLASSICAL_GUITAR` — **ACTIVE / QUALIFIED** since 2026-10-15. Uses the FreePats Spanish Classical Guitar CC0 manifest after automated browser, physical PC, Safari/iOS, latency, REST-silence, Stop All, and instrument-switch qualification.
 - `VIOLA`, `CELLO`, `DOUBLE_BASS` — **SCAFFOLD / UNQUALIFIED**.
 - `FLUTE`, `OBOE`, `CLARINET_BB`, `BASSOON` — **SCAFFOLD / UNQUALIFIED**.
 - `TRUMPET_BB`, `FRENCH_HORN_F`, `TROMBONE`, `TUBA` — **SCAFFOLD / UNQUALIFIED**.
