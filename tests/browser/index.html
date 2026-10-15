@@ -41,7 +41,7 @@
 
   const provider = new ManifestSampleProvider([
     fixture('GRAND_PIANO', 60, 440),
-    fixture('CLASSICAL_GUITAR', 64, 330)
+    fixture('VIOLIN', 64, 330)
   ]);
   const engine = createAudioEngine({ sampleProvider: provider });
   window.__stAudioEngine = engine;
@@ -51,9 +51,9 @@
     if (!unlocked.ok) { result.textContent = unlocked.error.code; return; }
     const piano = await engine.audition({ requestId: 'piano-r1', sourceRevisionId: 'rev-1', pitch: { midi: 60 }, instrumentId: 'GRAND_PIANO', durationMs: 80 });
     if (!piano.ok) { result.textContent = piano.error.code; return; }
-    await engine.setInstrument('CLASSICAL_GUITAR');
-    const guitar = await engine.audition({ requestId: 'guitar-r1', sourceRevisionId: 'rev-1', pitch: { midi: 64 }, instrumentId: 'CLASSICAL_GUITAR', durationMs: 80 });
-    result.textContent = guitar.ok ? 'SWITCH_OK' : guitar.error.code;
+    await engine.setInstrument('VIOLIN');
+    const violin = await engine.audition({ requestId: 'violin-r1', sourceRevisionId: 'rev-1', pitch: { midi: 64 }, instrumentId: 'VIOLIN', durationMs: 80 });
+    result.textContent = violin.ok ? 'SWITCH_OK' : violin.error.code;
   });
 </script>
 </body>
