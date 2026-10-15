@@ -10,7 +10,7 @@ const resolvingProvider = (calls: { resolve: number }): SampleProvider => ({
 });
 
 describe("Audio Engine production boundaries", () => {
-  it("fails suspended Classical Guitar closed before sample resolution on every audio path", async () => {
+  it("allows qualified Classical Guitar through every production audio path", async () => {
     const context = new FakeAudioContext();
     const calls = { resolve: 0 };
     const engine = createAudioEngine({
@@ -24,14 +24,14 @@ describe("Audio Engine production boundaries", () => {
     expect(await engine.preparePitches({
       instrumentId: "CLASSICAL_GUITAR",
       pitches: [{ midi: 60 }]
-    })).toMatchObject({ ok: false, error: { code: "SAMPLE_UNAVAILABLE" } });
+    })).toEqual({ ok: true });
 
     expect(await engine.audition({
       requestId: "guitar-audition",
       sourceRevisionId: "rev-1",
       instrumentId: "CLASSICAL_GUITAR",
       pitch: { midi: 60 }
-    })).toMatchObject({ ok: false, error: { code: "SAMPLE_UNAVAILABLE" } });
+    })).toEqual({ ok: true, requestId: "guitar-audition" });
 
     expect(await engine.scheduleNote({
       requestId: "guitar-scheduled",
@@ -39,10 +39,10 @@ describe("Audio Engine production boundaries", () => {
       instrumentId: "CLASSICAL_GUITAR",
       pitch: { midi: 60 },
       startTimeSeconds: 2
-    })).toMatchObject({ ok: false, error: { code: "SAMPLE_UNAVAILABLE" } });
+    })).toEqual({ ok: true, requestId: "guitar-scheduled" });
 
-    expect(calls.resolve).toBe(0);
-    expect(context.sources).toHaveLength(0);
+    expect(calls.resolve).toBe(3);
+    expect(context.sources).toHaveLength(2);
   });
 
   it("disposes voices without closing an explicitly external AudioContext", async () => {
