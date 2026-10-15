@@ -55,8 +55,8 @@ Violin activation does not change architectural authority:
 
 Violin qualification must continue to preserve:
 - Grand Piano production audition;
+- Classical Guitar production audition after its independent 2026-10-15 qualification and activation;
 - bounded caches and voices;
 - iOS user-gesture unlock;
-- fail-closed behavior for unqualified instruments;
-- suspended Classical Guitar lifecycle;
+- fail-closed behavior for remaining unqualified instruments;
 - immediate audition backward compatibility alongside public contract v0.2.0 scheduled-audio additions.
