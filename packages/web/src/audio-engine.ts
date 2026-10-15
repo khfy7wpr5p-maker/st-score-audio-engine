@@ -36,9 +36,12 @@ const CAPABILITIES: readonly AudioEngineCapability[] = Object.freeze([
   "scheduled-note"
 ]);
 
+export type AudioContextOwnership = "engine" | "external";
+
 export interface AudioEngineOptions {
   readonly sampleProvider?: SampleProvider;
   readonly audioContextFactory?: () => AudioContext;
+  readonly audioContextOwnership?: AudioContextOwnership;
   readonly voiceLimit?: number;
   readonly defaultInstrument?: InstrumentId;
   readonly monotonicClockMs?: () => number;
@@ -54,6 +57,7 @@ export interface AudioEngineDiagnostics {
 export class WebAudioEngine {
   private readonly sampleProvider: SampleProvider;
   private readonly audioContextFactory: () => AudioContext;
+  private readonly audioContextOwnership: AudioContextOwnership;
   private readonly voices: VoiceManager;
   private readonly voiceLimit: number;
   private readonly monotonicClockMs: () => number;
@@ -71,6 +75,7 @@ export class WebAudioEngine {
       VSCO2CE_SOLO_VIOLIN_ARCO_VIB_MANIFEST
     ]);
     this.audioContextFactory = options.audioContextFactory ?? (() => new AudioContext());
+    this.audioContextOwnership = options.audioContextOwnership === "external" ? "external" : "engine";
     this.voiceLimit = options.voiceLimit ?? 24;
     this.voices = new VoiceManager(this.voiceLimit);
     this.instrumentId = options.defaultInstrument ?? "GRAND_PIANO";
@@ -79,7 +84,9 @@ export class WebAudioEngine {
 
   async prepare(): Promise<void> {
     this.assertNotDisposed();
-    await this.sampleProvider.prepare?.(this.instrumentId);
+    if (this.isRuntimeAvailable(this.instrumentId)) {
+      await this.sampleProvider.prepare?.(this.instrumentId);
+    }
     if (this.phase === "NEW") this.phase = "PREPARED";
     this.warmDecodedSamples();
   }
@@ -110,7 +117,9 @@ export class WebAudioEngine {
       return;
     }
     this.instrumentId = instrumentId;
-    await this.sampleProvider.prepare?.(instrumentId);
+    if (this.isRuntimeAvailable(instrumentId)) {
+      await this.sampleProvider.prepare?.(instrumentId);
+    }
     this.warmDecodedSamples();
   }
 
@@ -137,6 +146,8 @@ export class WebAudioEngine {
         }
       };
     }
+    const lifecycleError = this.runtimeAvailabilityError(input.instrumentId);
+    if (lifecycleError) return { ok: false, error: lifecycleError };
     if (!this.context || this.context.state !== "running") {
       return { ok: false, error: { code: "AUDIO_UNLOCK_REQUIRED", message: "AudioContext must be unlocked from a user gesture" } };
     }
@@ -187,6 +198,8 @@ export class WebAudioEngine {
     if (input.instrumentId !== this.instrumentId) {
       return { ok: false, error: { code: "INVALID_REQUEST", message: `request instrument ${input.instrumentId} does not match active instrument ${this.instrumentId}` } };
     }
+    const lifecycleError = this.runtimeAvailabilityError(input.instrumentId);
+    if (lifecycleError) return { ok: false, error: lifecycleError };
     if (!this.context || this.context.state !== "running") {
       return { ok: false, error: { code: "AUDIO_UNLOCK_REQUIRED", message: "AudioContext must be unlocked from a user gesture" } };
     }
@@ -217,6 +230,8 @@ export class WebAudioEngine {
         }
       };
     }
+    const lifecycleError = this.runtimeAvailabilityError(input.instrumentId);
+    if (lifecycleError) return { ok: false, error: lifecycleError };
     if (!this.context || this.context.state !== "running") {
       return { ok: false, error: { code: "AUDIO_UNLOCK_REQUIRED", message: "AudioContext must be unlocked from a user gesture" } };
     }
@@ -280,7 +295,9 @@ export class WebAudioEngine {
     if (this.phase === "DISPOSED") return;
     this.stopAll();
     await this.sampleProvider.dispose?.();
-    if (this.context && this.context.state !== "closed") await this.context.close();
+    if (this.audioContextOwnership === "engine" && this.context && this.context.state !== "closed") {
+      await this.context.close();
+    }
     this.phase = "DISPOSED";
   }
 
@@ -291,6 +308,8 @@ export class WebAudioEngine {
     | { readonly ok: true; readonly sample: ResolvedSample }
     | { readonly ok: false; readonly error: { readonly code: "OUT_OF_RANGE" | "SAMPLE_UNAVAILABLE"; readonly message: string } }
   > {
+    const lifecycleError = this.runtimeAvailabilityError(instrumentId);
+    if (lifecycleError) return { ok: false, error: lifecycleError };
     if (!this.context) {
       return { ok: false, error: { code: "SAMPLE_UNAVAILABLE", message: "AudioContext is unavailable" } };
     }
@@ -369,8 +388,24 @@ export class WebAudioEngine {
 
   private warmDecodedSamples(): void {
     const context = this.context;
-    if (!context || context.state !== "running") return;
+    if (!context || context.state !== "running" || !this.isRuntimeAvailable(this.instrumentId)) return;
     void this.sampleProvider.prepareDecoded?.(this.instrumentId, context).catch(() => undefined);
+  }
+
+  private isRuntimeAvailable(instrumentId: InstrumentId): boolean {
+    const profile = getInstrumentProfile(instrumentId);
+    return profile.lifecycle === "ACTIVE" && profile.sampleReadiness === "QUALIFIED";
+  }
+
+  private runtimeAvailabilityError(
+    instrumentId: InstrumentId
+  ): { readonly code: "SAMPLE_UNAVAILABLE"; readonly message: string } | null {
+    const profile = getInstrumentProfile(instrumentId);
+    if (profile.lifecycle === "ACTIVE" && profile.sampleReadiness === "QUALIFIED") return null;
+    return {
+      code: "SAMPLE_UNAVAILABLE",
+      message: `${profile.displayName} runtime is ${profile.lifecycle.toLowerCase()} / ${profile.sampleReadiness.toLowerCase()}; no qualified runtime sample is available`
+    };
   }
 
   private assertNotDisposed(): void {
