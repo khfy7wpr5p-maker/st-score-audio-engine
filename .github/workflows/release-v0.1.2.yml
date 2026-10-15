@@ -1,18 +1,11 @@
-name: Release v0.1.2
+name: Release v0.1.2 (historical)
 
+# v0.1.2 is immutable and already released. Keep this workflow only as
+# historical release automation; future main-branch work must not re-run it.
 on:
   push:
-    branches: [main]
-    paths:
-      - release/v0.1.2.json
-      - release/v0.1.2.md
-      - .github/workflows/release-v0.1.2.yml
-      - package.json
-      - packages/web/package.json
-      - packages/web/src/global-entry.ts
-      - packages/web/src/audio-engine.ts
-      - packages/web/src/instruments/catalog.ts
-      - packages/web/src/instrument-qualification.ts
+    tags:
+      - v0.1.2
 
 permissions:
   contents: write
