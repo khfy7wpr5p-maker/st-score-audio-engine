@@ -33,6 +33,7 @@ describe("temporary GitHub Pages audio qualification lab", () => {
 
     expect(viteConfig).toContain('base: "/st-score-audio-engine/"');
     expect(viteConfig).toContain('root: resolve(__dirname, "examples/physical-ios-validation")');
+    expect(workflow).toContain("actions/configure-pages@v5");
     expect(workflow).toContain("actions/upload-pages-artifact@v4");
     expect(workflow).toContain("actions/deploy-pages@v4");
     expect(packageJson.scripts?.["build:qualification:pages"]).toContain(
