@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>ST Score Audio — Physical iOS Validation</title>
+  <title>ST Score Audio — Audio Qualification Lab</title>
   <style>
     :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color-scheme: light dark; }
     body { margin: 0; padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
     main { max-width: 720px; margin: 0 auto; }
     h1 { font-size: 1.35rem; }
+    h2 { font-size: 1rem; margin: 20px 0 8px; }
     .status { padding: 12px; border: 1px solid currentColor; border-radius: 10px; margin: 12px 0; white-space: pre-wrap; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     button { min-height: 52px; border-radius: 10px; border: 1px solid currentColor; font-size: 1rem; padding: 10px; }
@@ -20,19 +21,38 @@
 </head>
 <body>
 <main>
-  <h1>ST Score Audio — Fiziksel iPhone Safari Doğrulama</h1>
-  <p><small>Grand Piano production engine üzerinden doğrulanır. FreePats Classical Guitar ise yalnız bu fiziksel qualification sayfasında manifest + ManifestSampleProvider ile doğrudan test edilir; bu yol ürün lifecycle durumunu değiştirmez ve SUSPENDED gitarı production engine içinde etkinleştirmez. Diagnostic Tone yalnız fiziksel WebAudio çıkışını ayırmak için test sinyalidir; üretim enstrümanı değildir.</small></p>
+  <h1>ST Score Audio — Audio Qualification Lab</h1>
+  <p><small>Grand Piano ve Violin mevcut ACTIVE / QUALIFIED production engine üzerinden doğrulanır. FreePats Classical Guitar yalnız bu qualification sayfasında manifest + ManifestSampleProvider ile doğrudan test edilir; bu yol ürün lifecycle durumunu değiştirmez ve SUSPENDED gitarı production engine içinde etkinleştirmez.</small></p>
   <div id="status" class="status">Başlangıç: NEW</div>
+
   <div class="grid">
     <button id="speakerTest" class="full">0. Hoparlör / WebAudio Diagnostic Tone</button>
     <button id="unlock" class="full">1. Audio Unlock / Resume</button>
+  </div>
+
+  <h2>Grand Piano — Production</h2>
+  <div class="grid">
     <button id="pianoC4">Piano C4</button>
     <button id="pianoRetrigger">Piano C4 Retrigger</button>
     <button id="pianoChord" class="full">Piano C–E–G Akor</button>
-    <button id="rest" class="full">REST Sessizlik Kontrolü</button>
+  </div>
+
+  <h2>Violin — Production</h2>
+  <div class="grid">
+    <button id="violinA4">Violin A4</button>
+    <button id="violinD5">Violin D5</button>
+    <button id="violinDyad" class="full">Violin A4–E5 Birlikte</button>
+  </div>
+
+  <h2>Classical Guitar — Qualification Only</h2>
+  <div class="grid">
     <button id="guitarE3">Gitar E3 — Qualification Only</button>
     <button id="guitarChord">Gitar E–G–B — Qualification Only</button>
-    <button id="switch" class="full">Piano → Guitar(Qualification) → Piano Switch</button>
+    <button id="switch" class="full">Piano → Guitar(Qualification) → Violin Switch</button>
+  </div>
+
+  <div class="grid" style="margin-top: 20px;">
+    <button id="rest" class="full">REST Sessizlik Kontrolü</button>
     <button id="stop" class="full">Stop All</button>
   </div>
   <div id="log" class="status log"></div>
@@ -42,7 +62,7 @@
     createAudioEngine,
     ManifestSampleProvider,
     FREEPATS_CLASSICAL_GUITAR_MANIFEST
-  } from '/packages/web/src/index.ts';
+  } from '../../packages/web/src/index.ts';
 
   const status = document.querySelector('#status');
   const logNode = document.querySelector('#log');
@@ -66,7 +86,7 @@
 
   const req = (midi, instrumentId, durationMs = 800) => ({
     requestId: `physical-${++seq}`,
-    sourceRevisionId: 'physical-ios-validation-v2',
+    sourceRevisionId: 'audio-qualification-pages-v1',
     pitch: { midi },
     instrumentId,
     durationMs,
@@ -93,7 +113,7 @@
       osc.stop(now + 0.38);
       await resumePromise;
       if (ctx.state !== 'running') throw new Error(`diagnostic AudioContext state=${ctx.state}`);
-      status.textContent = 'SPEAKER_TEST_SCHEDULED\n440 Hz / 0.38 sn — fiziksel olarak kısa ton duyulmalı';
+      status.textContent = 'SPEAKER_TEST_SCHEDULED\n440 Hz / 0.38 sn — kısa ton duyulmalı';
       log('SPEAKER_TEST_SCHEDULED context=running');
       await new Promise(resolve => setTimeout(resolve, 500));
     } finally {
@@ -215,6 +235,7 @@
 
   document.querySelector('#speakerTest').addEventListener('click', () => run('SPEAKER_TEST', speakerSelfTest));
   document.querySelector('#unlock').addEventListener('click', () => run('UNLOCK', unlock));
+
   document.querySelector('#pianoC4').addEventListener('click', () => run('PIANO_C4', () => audition(60, 'GRAND_PIANO')));
   document.querySelector('#pianoRetrigger').addEventListener('click', () => run('PIANO_RETRIGGER', async () => {
     await ensureEngineUnlocked();
@@ -228,13 +249,11 @@
     show('PIANO_RETRIGGER_OK — fiziksel sesi ayrıca doğrula');
   }));
   document.querySelector('#pianoChord').addEventListener('click', () => run('PIANO_CHORD', () => chord([60,64,67], 'GRAND_PIANO')));
-  document.querySelector('#rest').addEventListener('click', () => run('REST', async () => {
-    engine.stopAll();
-    stopQualificationGuitar();
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    log('REST_HOST_NO_REQUEST_OK');
-    show('REST: HOST SENT NO AUDITION REQUEST — 1 sn sessizlik duyulmalı');
-  }));
+
+  document.querySelector('#violinA4').addEventListener('click', () => run('VIOLIN_A4', () => audition(69, 'VIOLIN', 1100)));
+  document.querySelector('#violinD5').addEventListener('click', () => run('VIOLIN_D5', () => audition(74, 'VIOLIN', 1100)));
+  document.querySelector('#violinDyad').addEventListener('click', () => run('VIOLIN_DYAD', () => chord([69,76], 'VIOLIN')));
+
   document.querySelector('#guitarE3').addEventListener('click', () => run('GUITAR_E3', () => qualificationGuitarAudition(52, 1000)));
   document.querySelector('#guitarChord').addEventListener('click', () => run('GUITAR_CHORD', () => qualificationGuitarChord([52,55,59], 1000)));
   document.querySelector('#switch').addEventListener('click', () => run('SWITCH', async () => {
@@ -243,10 +262,19 @@
     await new Promise(resolve => setTimeout(resolve, 650));
     await qualificationGuitarAudition(52, 700);
     await new Promise(resolve => setTimeout(resolve, 850));
-    await audition(60, 'GRAND_PIANO', 500);
-    log('SWITCH_PIANO_GUITAR_QUALIFICATION_PIANO_OK');
+    await audition(69, 'VIOLIN', 700);
+    log('SWITCH_PIANO_GUITAR_QUALIFICATION_VIOLIN_OK');
     show('SWITCH_OK — fiziksel sesi ayrıca doğrula');
   }));
+
+  document.querySelector('#rest').addEventListener('click', () => run('REST', async () => {
+    engine.stopAll();
+    stopQualificationGuitar();
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    log('REST_HOST_NO_REQUEST_OK');
+    show('REST: HOST SENT NO AUDITION REQUEST — 1 sn sessizlik duyulmalı');
+  }));
+
   document.querySelector('#stop').addEventListener('click', () => {
     engine.stopAll();
     stopQualificationGuitar();
