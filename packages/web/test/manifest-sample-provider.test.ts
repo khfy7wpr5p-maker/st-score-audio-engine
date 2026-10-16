@@ -90,6 +90,24 @@ describe("ManifestSampleProvider", () => {
     expect(urls).toEqual(["/samples/F%234.flac"]);
   });
 
+  it("preserves the existing single-leading-slash join behavior", async () => {
+    const { fetcher, urls } = fetchHarness();
+    const context = new FakeAudioContext();
+    const doubleSlashManifest: InstrumentSampleManifest = {
+      ...manifest,
+      samples: [{ rootMidi: 66, path: "//samples/F#4.flac" }],
+      minMidi: 66,
+      maxMidi: 66,
+      maxTransposeSemitones: 0,
+      preloadRootMidis: []
+    };
+    const provider = new ManifestSampleProvider([doubleSlashManifest], { fetcher });
+
+    await provider.resolve("GRAND_PIANO", { midi: 66 }, context as unknown as AudioContext);
+
+    expect(urls).toEqual(["https://example.invalid/samples//samples/F%234.flac"]);
+  });
+
   it("fails closed when no bounded mapping exists", async () => {
     const { fetcher } = fetchHarness();
     const context = new FakeAudioContext();

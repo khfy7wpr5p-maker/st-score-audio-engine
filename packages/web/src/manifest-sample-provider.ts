@@ -142,7 +142,7 @@ export class ManifestSampleProvider implements SampleProvider {
     const base = this.baseUrlOverrides[manifest.instrumentId] ?? manifest.defaultBaseUrl ?? "";
     const encodedPath = entry.path.replace(/#/g, "%23");
     if (!base) return encodedPath;
-    return `${base.replace(/\/$/, "")}/${encodedPath.replace(/^\/+/, "")}`;
+    return `${base.replace(/\/$/, "")}/${encodedPath.replace(/^\//, "")}`;
   }
 
   private async loadDecoded(url: string, context: AudioContext): Promise<AudioBuffer> {
