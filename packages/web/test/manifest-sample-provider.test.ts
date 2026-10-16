@@ -53,6 +53,43 @@ describe("ManifestSampleProvider", () => {
     expect(urls[0]).toBe("https://example.invalid/samples/Ds4.wav");
   });
 
+  it("percent-encodes fragment markers in sample filenames", async () => {
+    const { fetcher, urls } = fetchHarness();
+    const context = new FakeAudioContext();
+    const sharpManifest: InstrumentSampleManifest = {
+      ...manifest,
+      samples: [{ rootMidi: 66, path: "F#4.flac" }],
+      minMidi: 66,
+      maxMidi: 66,
+      maxTransposeSemitones: 0,
+      preloadRootMidis: []
+    };
+    const provider = new ManifestSampleProvider([sharpManifest], { fetcher });
+
+    await provider.resolve("GRAND_PIANO", { midi: 66 }, context as unknown as AudioContext);
+
+    expect(urls).toEqual(["https://example.invalid/samples/F%234.flac"]);
+  });
+
+  it("preserves absolute-path sample URLs while encoding their segments", async () => {
+    const { fetcher, urls } = fetchHarness();
+    const context = new FakeAudioContext();
+    const localManifest: InstrumentSampleManifest = {
+      ...manifest,
+      defaultBaseUrl: undefined,
+      samples: [{ rootMidi: 66, path: "/samples/F#4.flac" }],
+      minMidi: 66,
+      maxMidi: 66,
+      maxTransposeSemitones: 0,
+      preloadRootMidis: []
+    };
+    const provider = new ManifestSampleProvider([localManifest], { fetcher });
+
+    await provider.resolve("GRAND_PIANO", { midi: 66 }, context as unknown as AudioContext);
+
+    expect(urls).toEqual(["/samples/F%234.flac"]);
+  });
+
   it("fails closed when no bounded mapping exists", async () => {
     const { fetcher } = fetchHarness();
     const context = new FakeAudioContext();
