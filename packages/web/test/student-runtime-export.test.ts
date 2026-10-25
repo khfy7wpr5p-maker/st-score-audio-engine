@@ -35,10 +35,10 @@ describe("Student audio runtime export", () => {
     );
   });
 
-  it("publishes browser runtime identity 0.2.0 with scheduled-note capability", () => {
-    expect(SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION).toBe("0.2.0");
+  it("publishes browser runtime identity 0.3.0 with scheduled-note capability", () => {
+    expect(SCORE_AUDIO_ENGINE_BROWSER_RUNTIME_VERSION).toBe("0.3.0");
     const runtime = (globalThis as typeof globalThis & Record<string, any>)[SCORE_AUDIO_ENGINE_GLOBAL];
-    expect(runtime?.version).toBe("0.2.0");
+    expect(runtime?.version).toBe("0.3.0");
     const engine = runtime?.createAudioEngine?.({
       sampleProvider: { async resolve() { return null; } }
     });
@@ -98,7 +98,7 @@ describe("Student audio runtime export", () => {
         schemaVersion: 1,
         runtimeTarget: "student-static",
         audioEngineSourceRevision: "audio-head-fixture",
-        browserRuntimeVersion: "0.2.0",
+        browserRuntimeVersion: "0.3.0",
         publicContractVersion: "0.2.0",
         violin: {
           sourceTag: "1.1.0",

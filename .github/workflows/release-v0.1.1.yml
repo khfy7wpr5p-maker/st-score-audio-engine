@@ -1,15 +1,11 @@
-name: Release v0.1.1
+name: Release v0.1.1 (historical)
 
+# v0.1.1 is immutable and already released. Keep this workflow only as
+# historical release automation; future main-branch work must not re-run it.
 on:
   push:
-    branches: [main]
-    paths:
-      - release/v0.1.1.json
-      - release/v0.1.1.md
-      - .github/workflows/release-v0.1.1.yml
-      - package.json
-      - packages/web/package.json
-      - packages/web/src/global-entry.ts
+    tags:
+      - v0.1.1
 
 permissions:
   contents: write
