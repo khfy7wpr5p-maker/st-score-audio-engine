@@ -1,3 +1,4 @@
+import { snapshotCalibration, type SampleCalibrationProfile } from './calibration-profile.js';
 import {
   AUDIO_CONTRACT_VERSION,
   DEFAULT_DURATION_MS,
@@ -40,6 +41,8 @@ export type AudioContextOwnership = "engine" | "external";
 
 export interface AudioEngineOptions {
   readonly sampleProvider?: SampleProvider;
+  readonly calibrationProfile?: SampleCalibrationProfile;
+  readonly outputNode?: AudioNode;
   readonly audioContextFactory?: () => AudioContext;
   readonly audioContextOwnership?: AudioContextOwnership;
   readonly voiceLimit?: number;
@@ -56,6 +59,8 @@ export interface AudioEngineDiagnostics {
 
 export class WebAudioEngine {
   private readonly sampleProvider: SampleProvider;
+  private readonly calibrationProfile: SampleCalibrationProfile | undefined;
+  private readonly outputNode: AudioNode | undefined;
   private readonly audioContextFactory: () => AudioContext;
   private readonly audioContextOwnership: AudioContextOwnership;
   private readonly voices: VoiceManager;
@@ -69,6 +74,9 @@ export class WebAudioEngine {
   private lastRequestToScheduleMs: number | undefined;
 
   constructor(options: AudioEngineOptions = {}) {
+    this.calibrationProfile = snapshotCalibration(options.calibrationProfile);
+    this.outputNode = options.outputNode;
+    if (this.calibrationProfile && this.calibrationProfile.instrumentId !== (options.defaultInstrument ?? "GRAND_PIANO")) throw new Error("calibration instrument mismatch");
     this.sampleProvider = options.sampleProvider ?? new ManifestSampleProvider([
       SALAMANDER_GRAND_PIANO_MANIFEST,
       FREEPATS_CLASSICAL_GUITAR_MANIFEST,
@@ -95,6 +103,7 @@ export class WebAudioEngine {
     if (this.phase === "DISPOSED") return { ok: false, error: { code: "ENGINE_DISPOSED", message: "audio engine is disposed" } };
     try {
       this.context ??= this.audioContextFactory();
+      if (this.outputNode && this.outputNode.context !== this.context) throw new Error("audio output context mismatch");
       if (this.context.state !== "running") await this.context.resume();
       if (this.context.state !== "running") {
         this.phase = "SUSPENDED";
@@ -162,6 +171,7 @@ export class WebAudioEngine {
       let sample: ResolvedSample | null;
       try {
         sample = await this.sampleProvider.resolve(request.instrumentId, pitch, this.context);
+        if (sample) this.calibrationFor(sample, request.instrumentId);
       } catch (cause) {
         if (cause instanceof SampleProviderError) {
           return { ok: false, error: { code: cause.code, message: cause.message } };
@@ -341,6 +351,16 @@ export class WebAudioEngine {
     return { ok: true, sample };
   }
 
+  private calibrationFor(sample: ResolvedSample, instrumentId: InstrumentId) {
+    const calibrated = this.calibrationProfile?.instrumentId === instrumentId;
+    const entry = calibrated ? this.calibrationProfile?.samples.find(s => s.rootMidi === sample.rootMidi) : undefined;
+    if (calibrated && !entry) throw new SampleProviderError("SAMPLE_UNAVAILABLE", "sample calibration missing");
+    if (entry && (!Number.isFinite(sample.buffer.duration) || entry.offsetSeconds >= sample.buffer.duration)) {
+      throw new SampleProviderError("SAMPLE_UNAVAILABLE", "sample offset outside buffer");
+    }
+    return entry;
+  }
+
   private scheduleResolvedVoice(
     request: AuditionRequest,
     sample: ResolvedSample,
@@ -351,6 +371,9 @@ export class WebAudioEngine {
     }
 
     try {
+      const entry = this.calibrationFor(sample, request.instrumentId);
+      const offset = entry?.offsetSeconds ?? 0;
+      if (this.outputNode && this.outputNode.context !== this.context) throw new Error("audio output context mismatch");
       const source = this.context.createBufferSource();
       const gain = this.context.createGain();
       source.buffer = sample.buffer;
@@ -358,7 +381,7 @@ export class WebAudioEngine {
       source.playbackRate.setValueAtTime(2 ** (semitones / 12), startTimeSeconds);
       const velocity = request.velocity ?? 0.8;
       const sampleGain = sample.gain ?? 1;
-      const gainValue = Math.min(1, Math.max(0, velocity * sampleGain));
+      const gainValue = entry ? velocity * entry.gain : Math.min(1, Math.max(0, velocity * sampleGain));
       const durationMs = request.durationMs ?? DEFAULT_DURATION_MS;
       const releaseSeconds = getInstrumentProfile(request.instrumentId).releaseSeconds;
       const releaseStart = startTimeSeconds + durationMs / 1000;
@@ -366,12 +389,13 @@ export class WebAudioEngine {
       gain.gain.setValueAtTime(gainValue, releaseStart);
       gain.gain.linearRampToValueAtTime(0, releaseStart + releaseSeconds);
       source.connect(gain);
-      gain.connect(this.context.destination);
+      gain.connect(this.outputNode ?? this.context.destination);
       this.voices.add(
         { requestId: request.requestId, source, gain, startedAt: startTimeSeconds },
         this.context.currentTime
       );
-      source.start(startTimeSeconds);
+      if (offset === 0) source.start(startTimeSeconds);
+      else source.start(startTimeSeconds, offset);
       source.stop(releaseStart + releaseSeconds + 0.01);
       return { ok: true, requestId: request.requestId };
     } catch (cause) {

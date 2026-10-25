@@ -4,7 +4,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const BROWSER_RUNTIME_VERSION = "0.2.0";
+const BROWSER_RUNTIME_VERSION = "0.3.0";
 const PUBLIC_CONTRACT_VERSION = "0.2.0";
 const VSCO_TAG = "1.1.0";
 const VSCO_TREE_SHA1 = "fa78dd38fcf6d707d46eca4a1d46df32788bc99d";
